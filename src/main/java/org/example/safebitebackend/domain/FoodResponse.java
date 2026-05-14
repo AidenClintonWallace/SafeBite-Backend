@@ -12,5 +12,6 @@ public class FoodResponse {
     private String name;
     private String brand;
     private String image;
-    private String nutritionGrade;
+    private String ingredients;
+
 }
