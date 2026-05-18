@@ -1,6 +1,8 @@
 package org.example.safebitebackend.service;
 
-import org.example.safebitebackend.domain.FoodResponse;
+import org.example.safebitebackend.DTO.FoodResponse;
+import org.example.safebitebackend.domain.FoodEntity;
+import org.example.safebitebackend.repository.FoodRepository;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -13,8 +15,13 @@ import java.net.http.HttpResponse;
 
 @Service
 public class FoodService {
+    public final FoodRepository foodRepository;
 
-    public FoodResponse getFoodByBarcode(String barcode)
+    public FoodService(FoodRepository foodRepository) {
+        this.foodRepository = foodRepository;
+    }
+
+    public FoodEntity getFoodByBarcode(String barcode)
             throws IOException, InterruptedException {
 
         String url =
@@ -39,11 +46,23 @@ public class FoodService {
 
         JsonNode product = root.path("product");
 
-        return FoodResponse.builder()
-                .name(product.path("product_name").asText())
-                .brand(product.path("brands").asText())
-                .image(product.path("image_url").asText())
-                .nutritionGrade(product.path("nutriscore_grade").asText())
-                .build();
+        FoodEntity foodEntity = mapToEntity(product, barcode);
+
+        return foodRepository.save(foodEntity);
+
+    }
+
+    private FoodEntity mapToEntity(JsonNode product, String barcode) {
+
+        FoodEntity food = new FoodEntity();
+
+        food.setBarcode(barcode);
+        food.setName(product.path("product_name").asText("unknown"));
+        food.setBrand(product.path("brands").asText("unknown"));
+        food.setIngredients(product.path("ingredients_text").asText("unknown"));
+        food.setNutritionGrade(product.path("nutriscore_grade").asText("unknown"));
+
+        return food;
     }
 }
+
