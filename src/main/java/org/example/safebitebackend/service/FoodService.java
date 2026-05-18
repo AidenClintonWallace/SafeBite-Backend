@@ -42,8 +42,8 @@ public class FoodService {
         return FoodResponse.builder()
                 .name(product.path("product_name").asText())
                 .brand(product.path("brands").asText())
-                .image(product.path("image_url").asText("No image available"))
-                .ingredients(product.path("ingredients_text").asText("No ingreidients available"))
+                .image(product.path("image_url").asText())
+                .nutritionGrade(product.path("nutriscore_grade").asText())
                 .build();
     }
 }
