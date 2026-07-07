@@ -10,5 +10,9 @@ package org.example.safebitebackend.repository;
 import org.example.safebitebackend.domain.Report;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ReportRepository extends JpaRepository<Report, String> {
+import java.util.List;
+
+public interface ReportRepository extends JpaRepository<Report, Integer> {
+    List<Report> findByUserId(Integer userId);
+
 }
