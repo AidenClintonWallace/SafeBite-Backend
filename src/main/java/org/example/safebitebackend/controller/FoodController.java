@@ -1,6 +1,5 @@
 package org.example.safebitebackend.controller;
 
-import org.example.safebitebackend.DTO.FoodResponse;
 import org.example.safebitebackend.domain.FoodEntity;
 import org.example.safebitebackend.service.FoodService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,4 +19,21 @@ public class FoodController {
 
         return foodService.getFoodByBarcode(barcode);
     }
+
+    @PostMapping
+    public FoodEntity createFoodEntity(@PathVariable FoodEntity food)
+    {
+        return foodService.saveFood(food);
+    }
+
+    @PutMapping("/{id}")
+    public FoodEntity updatefood(@PathVariable Long id,@RequestBody FoodEntity food){
+        return foodService.updateFood(id, food);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deletefood(@PathVariable Long id){
+        foodService.deleteFood(id);
+    }
+
 }

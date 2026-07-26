@@ -1,6 +1,6 @@
 package org.example.safebitebackend.service;
 
-import org.example.safebitebackend.DTO.FoodResponse;
+import org.example.safebitebackend.Factory.FoodFactory;
 import org.example.safebitebackend.domain.FoodEntity;
 import org.example.safebitebackend.repository.FoodRepository;
 import org.springframework.stereotype.Service;
@@ -12,6 +12,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List;
 
 @Service
 public class FoodService {
@@ -46,23 +47,50 @@ public class FoodService {
 
         JsonNode product = root.path("product");
 
-        FoodEntity foodEntity = mapToEntity(product, barcode);
-
-        return foodRepository.save(foodEntity);
+        return mapToEntity(barcode, product);
 
     }
 
-    private FoodEntity mapToEntity(JsonNode product, String barcode) {
+    public FoodEntity mapToEntity(String barcode, JsonNode product) {
 
-        FoodEntity food = new FoodEntity();
+        return FoodFactory.createFoodEntity(
+                        null,
+                        barcode,
+                        product.path("product_name").asText("unknown"),
+                        product.path("brands").asText("unknown"),
+                        product.path("ingredients_text").asText("unknown"),
+                        product.path("nutriscore_grade").asText("unknown")
+                );
+    }
 
-        food.setBarcode(barcode);
-        food.setName(product.path("product_name").asText("unknown"));
-        food.setBrand(product.path("brands").asText("unknown"));
-        food.setIngredients(product.path("ingredients_text").asText("unknown"));
-        food.setNutritionGrade(product.path("nutriscore_grade").asText("unknown"));
+    public FoodEntity saveFood(FoodEntity food) {
+        return foodRepository.save(food);
+    }
 
-        return food;
+    public List<FoodEntity> getAll(){
+        return foodRepository.findAll();
+    }
+
+
+    public FoodEntity updateFood(Long id,  FoodEntity updatedFood) {
+        FoodEntity existingFood = foodRepository.findById(id).orElse(null);
+
+        FoodEntity food = new FoodEntity.Builder()
+                .copy(existingFood)
+                .setBarcode(updatedFood.getBarcode())
+                .setName(updatedFood.getName())
+                .setBrand(updatedFood.getBrand())
+                .setIngredients(updatedFood.getIngredients())
+                .setNutritionGrade(updatedFood.getNutritionGrade())
+                .build();
+
+        return foodRepository.save(food);
+    }
+
+    public void deleteFood(Long id){
+        FoodEntity existingFood = foodRepository.findById(id).orElse(null);
+
+        foodRepository.delete(existingFood);
     }
 }
 
