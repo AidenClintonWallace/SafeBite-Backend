@@ -11,6 +11,10 @@ public class FoodEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long productId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "productId")
+    private UserEntity user;
+
     private  String barcode;
     private String name;
     private String brand;
@@ -23,6 +27,7 @@ public class FoodEntity {
 
     public FoodEntity(Builder builder) {
         this.productId = builder.productId;
+        this.user = builder.user;
         this.barcode = builder.barcode;
         this.name = builder.name;
         this.brand = builder.brand;
@@ -32,7 +37,7 @@ public class FoodEntity {
 
     public static class Builder{
         private Long productId;
-
+        private UserEntity user;
         private  String barcode;
         private String name;
         private String brand;
@@ -41,6 +46,11 @@ public class FoodEntity {
 
         public Builder setProductId(Long productId) {
             this.productId = productId;
+            return this;
+        }
+
+        public Builder setUser(UserEntity user) {
+            this.user = user;
             return this;
         }
 
@@ -74,6 +84,7 @@ public class FoodEntity {
 
         public Builder copy(FoodEntity food){
             this.productId = food.productId;
+            this.user = food.user;
             this.barcode = food.barcode;
             this.name = food.name;
             this.brand = food.brand;
@@ -81,6 +92,10 @@ public class FoodEntity {
             this.nutritionGrade = food.nutritionGrade;
             return this;
         }
+    }
+
+    public UserEntity getUser() {
+            return user;
     }
 
     public String getBarcode() {
@@ -111,6 +126,7 @@ public class FoodEntity {
     public String toString() {
         return "FoodEntity{" +
                 "productId=" + productId +
+                ", user=" + user +
                 ", barcode='" + barcode + '\'' +
                 ", name='" + name + '\'' +
                 ", brand='" + brand + '\'' +
