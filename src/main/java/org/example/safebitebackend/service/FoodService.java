@@ -22,8 +22,7 @@ public class FoodService {
         this.foodRepository = foodRepository;
     }
 
-    public FoodEntity getFoodByBarcode(String barcode)
-            throws IOException, InterruptedException {
+    public FoodEntity getFoodByBarcode(String barcode) throws IOException, InterruptedException {
 
         String url =
                 "https://world.openfoodfacts.org/api/v0/product/"
@@ -37,9 +36,7 @@ public class FoodService {
                 .GET()
                 .build();
 
-        HttpResponse<String> response =
-                client.send(request,
-                        HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
         ObjectMapper mapper = new ObjectMapper();
 
