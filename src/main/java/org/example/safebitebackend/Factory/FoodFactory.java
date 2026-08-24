@@ -1,11 +1,11 @@
 package org.example.safebitebackend.Factory;
 
-import org.example.safebitebackend.domain.FoodEntity;
+import org.example.safebitebackend.domain.Scanner;
 
 public class FoodFactory {
 
-    public static FoodEntity createFoodEntity(Long productId, String barcode, String name, String brand, String ingredients, String nutritionGrade) {
-        return new FoodEntity.Builder()
+    public static Scanner createFoodEntity(Long productId, String barcode, String name, String brand, String ingredients, String nutritionGrade) {
+        return new Scanner.Builder()
                 .setProductId(productId)
                 .setBarcode(barcode)
                 .setName(name)

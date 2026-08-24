@@ -1,6 +1,6 @@
 package org.example.safebitebackend.controller;
 
-import org.example.safebitebackend.domain.FoodEntity;
+import org.example.safebitebackend.domain.Scanner;
 import org.example.safebitebackend.service.FoodService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -17,23 +17,23 @@ public class FoodController {
     private FoodService foodService;
 
     @GetMapping("/{barcode}")
-    public FoodEntity getFood(@PathVariable String barcode) throws IOException, InterruptedException {
+    public Scanner getFood(@PathVariable String barcode) throws IOException, InterruptedException {
         return foodService.getFoodByBarcode(barcode);
     }
 
     @GetMapping("/savedFoods")
-    public List<FoodEntity> getAllSavedFoods() {
+    public List<Scanner> getAllSavedFoods() {
         return foodService.getAll();
     }
 
     @PostMapping
-    public FoodEntity createFoodEntity(@PathVariable FoodEntity food)
+    public Scanner createFoodEntity(@PathVariable Scanner food)
     {
         return foodService.saveFood(food);
     }
 
     @PutMapping("/{id}")
-    public FoodEntity updatefood(@PathVariable Long id,@RequestBody FoodEntity food){
+    public Scanner updatefood(@PathVariable Long id,@RequestBody Scanner food){
         return foodService.updateFood(id, food);
     }
 

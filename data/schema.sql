@@ -1,4 +1,15 @@
---NOTIFICATION Table
+-- FOOD_PRODUCT / SCANNER Table (Placed first so FK references work)
+CREATE TABLE IF NOT EXISTS FoodProduct (
+    product_id INT AUTO_INCREMENT PRIMARY KEY,
+    barcode VARCHAR(100),
+    name VARCHAR(255),
+    brand VARCHAR(255),
+    ingredients TEXT,
+    nutrition_grade VARCHAR(10),
+    expiry_date VARCHAR(50)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- NOTIFICATION Table
 CREATE TABLE IF NOT EXISTS NOTIFICATION (
     NotificationID INT AUTO_INCREMENT PRIMARY KEY,
     UserID INT NOT NULL,
@@ -16,7 +27,7 @@ CREATE TABLE IF NOT EXISTS NOTIFICATION (
         ON UPDATE CASCADE,
     CONSTRAINT fk_notification_product 
         FOREIGN KEY (ProductID) 
-        REFERENCES PRODUCT(ProductID) 
+        REFERENCES FoodProduct(product_id) 
         ON DELETE SET NULL 
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -38,7 +49,25 @@ CREATE TABLE IF NOT EXISTS REPORT (
         ON UPDATE CASCADE,
     CONSTRAINT fk_report_product 
         FOREIGN KEY (ProductID) 
-        REFERENCES PRODUCT(ProductID) 
+        REFERENCES FoodProduct(product_id) 
         ON DELETE SET NULL 
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Seed Data
+INSERT INTO FoodProduct (
+    barcode,
+    name,
+    brand,
+    ingredients,
+    nutrition_grade,
+    expiry_date
+)
+VALUES (
+    '123456789',
+    'Sasko Low GI Dumpy Seeded Brown Bread 800g',
+    'Sasko Bakery',
+    'Wheat Flour, Water, Wheat Bran, Linseed, Oats, Sunflower Seeds, Vitamins and Minerals',
+    'A',
+    '2026-04-31'
+);

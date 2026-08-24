@@ -5,7 +5,7 @@ import lombok.*;
 
 @Entity
 @Table(name = "FoodProduct")
-public class FoodEntity {
+public class Scanner {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,11 +21,11 @@ public class FoodEntity {
     private String ingredients;
     private String nutritionGrade;
 
-    public FoodEntity() {
+    public Scanner() {
 
     }
 
-    public FoodEntity(Builder builder) {
+    public Scanner(Builder builder) {
         this.productId = builder.productId;
         this.user = builder.user;
         this.barcode = builder.barcode;
@@ -78,11 +78,11 @@ public class FoodEntity {
             return this;
         }
 
-        public FoodEntity build(){
-            return new FoodEntity(this);
+        public Scanner build(){
+            return new Scanner(this);
         }
 
-        public Builder copy(FoodEntity food){
+        public Builder copy(Scanner food){
             this.productId = food.productId;
             this.user = food.user;
             this.barcode = food.barcode;

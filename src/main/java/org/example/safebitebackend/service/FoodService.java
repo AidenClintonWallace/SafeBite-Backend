@@ -1,7 +1,7 @@
 package org.example.safebitebackend.service;
 
 import org.example.safebitebackend.Factory.FoodFactory;
-import org.example.safebitebackend.domain.FoodEntity;
+import org.example.safebitebackend.domain.Scanner;
 import org.example.safebitebackend.repository.FoodRepository;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
@@ -22,7 +22,7 @@ public class FoodService {
         this.foodRepository = foodRepository;
     }
 
-    public FoodEntity getFoodByBarcode(String barcode) throws IOException, InterruptedException {
+    public Scanner getFoodByBarcode(String barcode) throws IOException, InterruptedException {
 
         String url =
                 "https://world.openfoodfacts.org/api/v0/product/"
@@ -48,7 +48,7 @@ public class FoodService {
 
     }
 
-    public FoodEntity mapToEntity(String barcode, JsonNode product) {
+    public Scanner mapToEntity(String barcode, JsonNode product) {
 
         return FoodFactory.createFoodEntity(
                         null,
@@ -60,19 +60,19 @@ public class FoodService {
                 );
     }
 
-    public FoodEntity saveFood(FoodEntity food) {
+    public Scanner saveFood(Scanner food) {
         return foodRepository.save(food);
     }
 
-    public List<FoodEntity> getAll(){
+    public List<Scanner> getAll(){
         return foodRepository.findAll();
     }
 
 
-    public FoodEntity updateFood(Long id,  FoodEntity updatedFood) {
-        FoodEntity existingFood = foodRepository.findById(id).orElse(null);
+    public Scanner updateFood(Long id,  Scanner updatedFood) {
+        Scanner existingFood = foodRepository.findById(id).orElse(null);
 
-        FoodEntity food = new FoodEntity.Builder()
+        Scanner food = new Scanner.Builder()
                 .copy(existingFood)
                 .setBarcode(updatedFood.getBarcode())
                 .setName(updatedFood.getName())
@@ -85,7 +85,7 @@ public class FoodService {
     }
 
     public void deleteFood(Long id){
-        FoodEntity existingFood = foodRepository.findById(id).orElse(null);
+        Scanner existingFood = foodRepository.findById(id).orElse(null);
 
         foodRepository.delete(existingFood);
     }
