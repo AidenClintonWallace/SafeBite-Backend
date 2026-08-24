@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 
-// Mock data structured by sections matching your design
+// Mock data
 const NOTIFICATION_SECTIONS = [
   {
     title: 'Expired',
