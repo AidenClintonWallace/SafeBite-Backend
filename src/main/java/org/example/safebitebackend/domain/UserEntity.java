@@ -20,7 +20,7 @@ public class UserEntity extends UserInfo {
 
     @OneToMany(mappedBy = "User")
     @JoinColumn(name = "productId")
-    private List<FoodEntity> foods = new ArrayList<>();
+    private List<Scanner> foods = new ArrayList<>();
 
     public UserEntity() {}
 
@@ -39,7 +39,7 @@ public class UserEntity extends UserInfo {
         private String username;
         private String email;
         private String password;
-        private List<FoodEntity> foods;
+        private List<Scanner> foods;
 
         public Builder setUserId(int userId){
             this.userId = userId;
@@ -61,7 +61,7 @@ public class UserEntity extends UserInfo {
             this.password = password;
             return this;
         }
-        public Builder setFoods(List<FoodEntity> foods){
+        public Builder setFoods(List<Scanner> foods){
             this.foods = foods;
             return this;
         }
