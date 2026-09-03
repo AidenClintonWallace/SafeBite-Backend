@@ -8,9 +8,13 @@ public class PantryResponse {
     private Integer pantryId;
     private Integer userId;
     private Integer productId;
+    private String productName;
     private Integer quantity;
     private LocalDate addedDate;
     private LocalDateTime lastUpdated;
+    private LocalDate expiryDate;
+    private String expiryStatus;
+    private Long daysUntilExpiry;
 
     public PantryResponse() {
     }
@@ -24,6 +28,22 @@ public class PantryResponse {
         this.quantity = quantity;
         this.addedDate = addedDate;
         this.lastUpdated = lastUpdated;
+    }
+
+    public PantryResponse(Integer pantryId, Integer userId, Integer productId,
+                          String productName, Integer quantity, LocalDate addedDate,
+                          LocalDateTime lastUpdated, LocalDate expiryDate,
+                          String expiryStatus, Long daysUntilExpiry) {
+        this.pantryId = pantryId;
+        this.userId = userId;
+        this.productId = productId;
+        this.productName = productName;
+        this.quantity = quantity;
+        this.addedDate = addedDate;
+        this.lastUpdated = lastUpdated;
+        this.expiryDate = expiryDate;
+        this.expiryStatus = expiryStatus;
+        this.daysUntilExpiry = daysUntilExpiry;
     }
 
     public Integer getPantryId() {
@@ -50,6 +70,14 @@ public class PantryResponse {
         this.productId = productId;
     }
 
+    public String getProductName() {
+        return productName;
+    }
+
+    public void setProductName(String productName) {
+        this.productName = productName;
+    }
+
     public Integer getQuantity() {
         return quantity;
     }
@@ -72,5 +100,29 @@ public class PantryResponse {
 
     public void setLastUpdated(LocalDateTime lastUpdated) {
         this.lastUpdated = lastUpdated;
+    }
+
+    public LocalDate getExpiryDate() {
+        return expiryDate;
+    }
+
+    public void setExpiryDate(LocalDate expiryDate) {
+        this.expiryDate = expiryDate;
+    }
+
+    public String getExpiryStatus() {
+        return expiryStatus;
+    }
+
+    public void setExpiryStatus(String expiryStatus) {
+        this.expiryStatus = expiryStatus;
+    }
+
+    public Long getDaysUntilExpiry() {
+        return daysUntilExpiry;
+    }
+
+    public void setDaysUntilExpiry(Long daysUntilExpiry) {
+        this.daysUntilExpiry = daysUntilExpiry;
     }
 }
