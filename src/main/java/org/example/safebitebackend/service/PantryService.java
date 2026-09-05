@@ -1,10 +1,10 @@
 package org.example.safebitebackend.service;
 
-import org.example.safebitebackend.pantry.domain.Pantry;
-import org.example.safebitebackend.pantry.domain.PantryResponse;
-import org.example.safebitebackend.pantry.domain.Product;
-import org.example.safebitebackend.pantry.repository.PantryRepository;
-import org.example.safebitebackend.pantry.repository.ProductRepository;
+import org.example.safebitebackend.domain.Pantry;
+import org.example.safebitebackend.DTO.PantryResponse;
+import org.example.safebitebackend.domain.Product;
+import org.example.safebitebackend.repository.PantryRepository;
+import org.example.safebitebackend.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
