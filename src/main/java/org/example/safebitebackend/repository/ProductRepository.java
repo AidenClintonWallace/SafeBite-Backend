@@ -1,11 +1,14 @@
-package org.example.safebitebackend.repository;
+package org.example.safebitebackend.pantry.repository;
 
-import org.example.safebitebackend.domain.Scanner;
+import org.example.safebitebackend.pantry.domain.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
-public interface ProductRepository
-        extends JpaRepository<Scanner, Long> {
+public interface ProductRepository extends JpaRepository<Product, Integer> {
+
+    Optional<Product> findByProductName(String productName);
 
 }
