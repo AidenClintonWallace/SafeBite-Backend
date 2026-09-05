@@ -1,8 +1,8 @@
-package org.example.safebitebackend.pantry.controller;
+package org.example.safebitebackend.controller;
 
-import org.example.safebitebackend.pantry.domain.Pantry;
-import org.example.safebitebackend.pantry.domain.PantryResponse;
-import org.example.safebitebackend.pantry.service.PantryService;
+import org.example.safebitebackend.domain.Pantry;
+import org.example.safebitebackend.DTO.PantryResponse;
+import org.example.safebitebackend.service.PantryService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

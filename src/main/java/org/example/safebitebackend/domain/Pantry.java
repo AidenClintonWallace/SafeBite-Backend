@@ -1,4 +1,4 @@
-package org.example.safebitebackend.pantry.domain;
+package org.example.safebitebackend.domain;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;

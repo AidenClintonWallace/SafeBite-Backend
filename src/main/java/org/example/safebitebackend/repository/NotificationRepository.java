@@ -1,6 +1,6 @@
-package org.example.safebitebackend.pantry.repository;
+package org.example.safebitebackend.repository;
 
-import org.example.safebitebackend.pantry.domain.Notification;
+import org.example.safebitebackend.domain.Notification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

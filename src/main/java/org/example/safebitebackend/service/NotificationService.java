@@ -1,8 +1,8 @@
-package org.example.safebitebackend.pantry.service;
+package org.example.safebitebackend.service;
 
-import org.example.safebitebackend.pantry.domain.Notification;
-import org.example.safebitebackend.pantry.domain.NotificationResponse;
-import org.example.safebitebackend.pantry.repository.NotificationRepository;
+import org.example.safebitebackend.domain.Notification;
+import org.example.safebitebackend.DTO.NotificationResponse;
+import org.example.safebitebackend.repository.NotificationRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;

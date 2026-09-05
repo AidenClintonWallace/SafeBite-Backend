@@ -1,4 +1,4 @@
-package org.example.safebitebackend.pantry.service;
+package org.example.safebitebackend.service;
 
 import org.example.safebitebackend.pantry.domain.Pantry;
 import org.example.safebitebackend.pantry.domain.PantryResponse;
