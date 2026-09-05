@@ -1,3 +1,4 @@
+import React from 'react';
 import NotificationsScreen from '../src/screens/Notifications';
 
 export default function NotificationsRoute() {
