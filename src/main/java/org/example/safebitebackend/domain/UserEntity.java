@@ -1,14 +1,14 @@
 package org.example.safebitebackend.domain;
 
 import jakarta.persistence.*;
-
 import java.util.ArrayList;
 import java.util.List;
-
 @Entity
-@Table(name = "Users")
-public class UserEntity extends UserInfo {
+@Table(name = "USER") 
+public class UserEntity {
+
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int userId;
 
     @Embedded
@@ -18,13 +18,12 @@ public class UserEntity extends UserInfo {
     private String email;
     private String password;
 
-    @OneToMany(mappedBy = "User")
-    @JoinColumn(name = "productId")
-    private List<FoodEntity> foods = new ArrayList<>();
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<Scanner> foods = new ArrayList<>();
 
     public UserEntity() {}
 
-    public UserEntity(Builder builder){
+    public UserEntity(Builder builder) {
         this.userId = builder.userId;
         this.userInfo = builder.userInfo;
         this.username = builder.username;
@@ -33,13 +32,13 @@ public class UserEntity extends UserInfo {
         this.foods = builder.foods;
     }
 
-    public static class Builder{
+    public static class Builder {
         private int userId;
         private UserInfo userInfo;
         private String username;
         private String email;
         private String password;
-        private List<FoodEntity> foods;
+        private List<Scanner> foods;
 
         public Builder setUserId(int userId){
             this.userId = userId;
@@ -61,7 +60,7 @@ public class UserEntity extends UserInfo {
             this.password = password;
             return this;
         }
-        public Builder setFoods(List<FoodEntity> foods){
+        public Builder setFoods(List<Scanner> foods){
             this.foods = foods;
             return this;
         }
