@@ -1,3 +1,7 @@
+/*Olwethu Mtwazi
+Student Number: 230036937
+ Report Screen*/
+
 import React, { useState } from 'react';
 import {
   StyleSheet,
