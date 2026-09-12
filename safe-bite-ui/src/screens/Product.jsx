@@ -1,3 +1,8 @@
+/*Sylvia Mahlangu
+Student Number: 222954396
+ Product Screen*/
+
+
 import React, { useState } from 'react';
 import {
   StyleSheet,
