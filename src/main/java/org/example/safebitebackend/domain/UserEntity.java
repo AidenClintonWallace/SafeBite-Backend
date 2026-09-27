@@ -1,103 +1,76 @@
 package org.example.safebitebackend.domain;
 
 import jakarta.persistence.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDateTime;
+
 @Entity
-@Table(name = "USER") 
+@Table(name = "users") // FIXED: must match schema.sql table name
 public class UserEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int userId;
+    private int id;
 
-    @Embedded
-    private UserInfo userInfo;
+    @Column(name = "full_name", nullable = false)
+    private String fullName;
 
-    private String username;
+    @Column(name = "email", nullable = false, unique = true)
     private String email;
-    private String password;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private List<Scanner> foods = new ArrayList<>();
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
     public UserEntity() {}
 
-    public UserEntity(Builder builder) {
-        this.userId = builder.userId;
-        this.userInfo = builder.userInfo;
-        this.username = builder.username;
-        this.email = builder.email;
-        this.password = builder.password;
-        this.foods = builder.foods;
-    }
+    // Getters
+    public int getId() { return id; }
+    public String getFullName() { return fullName; }
+    public String getEmail() { return email; }
+    public String getPhoneNumber() { return phoneNumber; }
+    public String getPasswordHash() { return passwordHash; }
 
+    // Setters
+    public void setId(int id) { this.id = id; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+    public void setEmail(String email) { this.email = email; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    // Builder for compatibility with your existing code
     public static class Builder {
-        private int userId;
-        private UserInfo userInfo;
-        private String username;
+        private int id;
+        private String fullName;
         private String email;
-        private String password;
-        private List<Scanner> foods;
+        private String phoneNumber;
+        private String passwordHash;
 
-        public Builder setUserId(int userId){
-            this.userId = userId;
-            return this;
-        }
-        public Builder setUserInfo(UserInfo userInfo){
-            this.userInfo = userInfo;
-            return this;
-        }
-        public Builder setUsername(String username){
-            this.username = username;
-            return this;
-        }
-        public Builder setEmail(String email){
-            this.email = email;
-            return this;
-        }
-        public Builder setPassword(String password){
-            this.password = password;
-            return this;
-        }
-        public Builder setFoods(List<Scanner> foods){
-            this.foods = foods;
-            return this;
-        }
+        public Builder setUserId(int id){ this.id = id; return this; }
+        public Builder setFullName(String fullName){ this.fullName = fullName; return this; }
+        public Builder setEmail(String email){ this.email = email; return this; }
+        public Builder setPhoneNumber(String phoneNumber){ this.phoneNumber = phoneNumber; return this; }
+        public Builder setPassword(String passwordHash){ this.passwordHash = passwordHash; return this; }
+        public Builder setUsername(String username){ this.fullName = username; return this; } // for old code
+
         public UserEntity build(){
-            return new UserEntity(this);
+            UserEntity user = new UserEntity();
+            user.id = this.id;
+            user.fullName = this.fullName;
+            user.email = this.email;
+            user.phoneNumber = this.phoneNumber;
+            user.passwordHash = this.passwordHash;
+            user.createdAt = LocalDateTime.now();
+            return user;
         }
-    }
-
-    public int getUserId() {
-        return userId;
-    }
-
-    public UserInfo getUserInfo() {
-        return userInfo;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getPassword() {
-        return password;
     }
 
     @Override
     public String toString() {
-        return "UserEntity{" +
-                "userId=" + userId +
-                ", userInfo=" + userInfo +
-                ", username='" + username + '\'' +
-                ", email='" + email + '\'' +
-                ", password='" + password + '\'' +
-                ", foods=" + foods +
-                '}';
+        return "UserEntity{" + "id=" + id + ", fullName='" + fullName + "', email='" + email + "', phoneNumber='" + phoneNumber + "'}";
     }
 }
