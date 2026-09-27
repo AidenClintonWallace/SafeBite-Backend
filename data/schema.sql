@@ -1,6 +1,6 @@
--- create table statements 
+-- Ricardo Mukwevho - 222567023 - Fixed Schema
 
--- USER Table 
+-- USER Table - This matches your Figma: Full Name, Email, Phone, Password
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS FoodProduct (
     expiry_date VARCHAR(50)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- PANTRY Table 
+-- PANTRY Table - FIXED FOREIGN KEYS
 CREATE TABLE IF NOT EXISTS pantry (
     pantry_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -29,11 +29,11 @@ CREATE TABLE IF NOT EXISTS pantry (
     quantity INT DEFAULT 1,
     added_date DATE DEFAULT (CURRENT_DATE),
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_pantry_user FOREIGN KEY (user_id) REFERENCES USER(UserID) ON DELETE CASCADE,
+    CONSTRAINT fk_pantry_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_pantry_product FOREIGN KEY (product_id) REFERENCES FoodProduct(product_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- NOTIFICATION Table
+-- NOTIFICATION Table - FIXED FOREIGN KEYS
 CREATE TABLE IF NOT EXISTS NOTIFICATION (
     NotificationID INT AUTO_INCREMENT PRIMARY KEY,
     UserID INT NOT NULL,
@@ -44,19 +44,11 @@ CREATE TABLE IF NOT EXISTS NOTIFICATION (
     Category VARCHAR(50) NOT NULL,
     IsRead TINYINT(1) DEFAULT 0,
     CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_notification_user 
-        FOREIGN KEY (UserID) 
-        REFERENCES USER(UserID) 
-        ON DELETE CASCADE 
-        ON UPDATE CASCADE,
-    CONSTRAINT fk_notification_product 
-        FOREIGN KEY (ProductID) 
-        REFERENCES FoodProduct(product_id) 
-        ON DELETE SET NULL 
-        ON UPDATE CASCADE
+    CONSTRAINT fk_notification_user FOREIGN KEY (UserID) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_notification_product FOREIGN KEY (ProductID) REFERENCES FoodProduct(product_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- REPORT Table
+-- REPORT Table - FIXED FOREIGN KEYS
 CREATE TABLE IF NOT EXISTS REPORT (
     ReportID INT AUTO_INCREMENT PRIMARY KEY,
     UserID INT NOT NULL,
@@ -66,14 +58,6 @@ CREATE TABLE IF NOT EXISTS REPORT (
     IssueDescription TEXT NULL,
     ReportStatus VARCHAR(50) DEFAULT 'Pending',
     ReportDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_report_user 
-        FOREIGN KEY (UserID) 
-        REFERENCES USER(UserID) 
-        ON DELETE CASCADE 
-        ON UPDATE CASCADE,
-    CONSTRAINT fk_report_product 
-        FOREIGN KEY (ProductID) 
-        REFERENCES FoodProduct(product_id) 
-        ON DELETE SET NULL 
-        ON UPDATE CASCADE
+    CONSTRAINT fk_report_user FOREIGN KEY (UserID) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_report_product FOREIGN KEY (ProductID) REFERENCES FoodProduct(product_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
