@@ -3,7 +3,7 @@ Student Number: 231157592
  Report Screen*/
 
 import React, { useState, useEffect } from 'react';
-import { pantryAPI } from '../services/pantryApi';
+import { pantryAPI } from '../src/services/pantryApi';
 import {
   View,
   Text,

@@ -1,8 +1,8 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import Dashboard from "../screens/Dashboard";
-import History from "../screens/History";
-import Profile from "../screens/Profile";
-import Scanner from "../screens/Scanner";
+import Dashboard from "../../app/dashboard";
+import PantryScreen from "../../app/pantry"; 
+import Profile from "../../app/profile";
+import Scanner from "../../app/scanner";
 
 const Tab = createBottomTabNavigator();
 const Ionicons = require("@expo/vector-icons/Ionicons").default;
@@ -16,9 +16,9 @@ export default function Navbar() {
           if (route.name === "Dashboard") {
             iconName = focused ? "home" : "home-outline";
           } else if (route.name === "Scan food item") {
-            iconName = focused ? "barcode-outline" : "barcode-outline";
-          } else if (route.name === "History") {
-            iconName = focused ? "time" : "time-outline";
+            iconName = focused ? "barcode" : "barcode-outline";
+          } else if (route.name === "Pantry") {
+            iconName = focused ? "fast-food" : "fast-food-outline";
           } else if (route.name === "My Profile") {
             iconName = focused ? "person" : "person-outline";
           }
@@ -28,8 +28,8 @@ export default function Navbar() {
     >
       <Tab.Screen name="Dashboard" component={Dashboard} />
       <Tab.Screen name="Scan food item" component={Scanner} />
+      <Tab.Screen name="Pantry" component={PantryScreen} />
       <Tab.Screen name="My Profile" component={Profile} />
-      <Tab.Screen name="History" component={History} />
     </Tab.Navigator>
   );
 }
