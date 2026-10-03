@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 @Entity
-@Table(name = "USER") 
+@Table(name = "users") 
 public class UserEntity {
 
     @Id
