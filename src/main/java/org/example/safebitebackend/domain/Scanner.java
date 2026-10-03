@@ -12,7 +12,7 @@ public class Scanner {
     private Long productId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "productId")
+    @JoinColumn(name = "user_id")
     private UserEntity user;
 
     private  String barcode;
