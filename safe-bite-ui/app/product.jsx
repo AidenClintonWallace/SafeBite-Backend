@@ -2,8 +2,7 @@
 Student Number: 222954396
  Product Screen*/
 
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,72 +10,150 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { productAPI } from '../src/services/productApi';
+import { pantryAPI } from '../src/services/pantryApi';
 
-export default function ProductDetailScreen({ navigation }) {
+const USER_ID = 1; // TODO: replace with real logged-in user once auth exists
+
+export default function ProductDetailScreen({ navigation, route }) {
+  const productId = route?.params?.productId;
+  const scannedFood = route?.params?.food; // from Scanner.jsx barcode lookup
+
+  const [product, setProduct] = useState(scannedFood || null);
+  const [loading, setLoading] = useState(!scannedFood);
+  const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
+
+  // True when this came from a barcode scan (Scanner/FoodProduct shape:
+  // name, brand, ingredients, nutritionGrade) rather than the manual
+  // pantry Product shape (productName, category, expiryDate).
+  const isScannedFood = Boolean(scannedFood);
+
+  useEffect(() => {
+    if (scannedFood) return; // already have the data, no fetch needed
+    if (!productId) {
+      setError('No product selected');
+      setLoading(false);
+      return;
+    }
+    fetchProduct();
+  }, [productId]);
+
+  const fetchProduct = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await productAPI.getProduct(productId);
+      setProduct(data);
+    } catch (err) {
+      setError(err.message || 'Failed to load product');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddToPantry = async () => {
+    try {
+      await pantryAPI.addToPantry({
+        userId: USER_ID,
+        productId: product.productId,
+        quantity: 1,
+        addedDate: new Date().toISOString().split('T')[0],
+      });
+      setMessage('✅ Product added to pantry successfully!');
+    } catch (err) {
+      setMessage(`❌ ${err.message || 'Failed to add to pantry'}`);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#2FA05A" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation?.goBack()}>
+          <Ionicons name="arrow-back-circle" size={32} color="#0c7a43" />
+          <Text style={styles.backText}>Back</Text>
+        </TouchableOpacity>
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>{error || 'Product not found'}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchProduct}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
-        {/* Header / Back Button */}
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation?.goBack()}
-        >
+
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation?.goBack()}>
           <Ionicons name="arrow-back-circle" size={32} color="#0c7a43" />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
 
-        {/* Product Title & Category */}
         <Text style={styles.title}>
-          Sasko Low Gi Dumpy Seeded Brown Bread 800g
+          {isScannedFood ? product.name : product.productName}
         </Text>
-        <Text style={styles.brand}>Bakery</Text>
-
-        {/* Status Card */}
-        <View style={styles.statusCard}>
-          <View>
-            <Text style={styles.smallText}>Status</Text>
-            <Text style={styles.expireText}>Expires soon</Text>
-          </View>
-          <View style={styles.rightAlign}>
-            <Text style={styles.smallText}>Best before</Text>
-            <Text style={styles.dateText}>31/04/2026</Text>
-          </View>
-        </View>
-
-        {/* Ingredients Card */}
-        <View style={styles.ingredientsCard}>
-          <Text style={styles.ingredientsTitle}>Ingredients</Text>
-          <Text style={styles.ingredientsText}>
-            Sasko White Bread Wheat Flour (Gluten), Water, Wheat Bran (Gluten),
-            Crushed Wheat (4%) (Gluten), Linseed (2%), De-Hulled Soybean Cuts (2%),
-            Yeast, Oat Groats (1%) (Gluten), Sugar, Sunflower Seeds (1%), Sesame
-            Seeds (1%), Salt, Wheat Gluten, Acidity Regulator, Preservative (Calcium
-            Propionate, Sorbic Acid), Emulsifiers (Vegetable Origin), Flavour,
-            Enhancer, Soybean Flour, Minerals (Electrolytic Iron, Zinc Oxide) and
-            Vitamins (Vitamin B3, Vitamin B6), Vitamin B1, Vitamin B2, Vitamin A and
-            Folic Acid), Flour Improvers, Enzymes (Non-Animal Origin).
+        {(isScannedFood ? product.brand : product.category) && (
+          <Text style={styles.brand}>
+            {isScannedFood ? product.brand : product.category}
           </Text>
-        </View>
+        )}
 
-        {/* Add to Pantry Button */}
+        {isScannedFood ? (
+          product.nutritionGrade && (
+            <View style={styles.statusCard}>
+              <View>
+                <Text style={styles.smallText}>Nutrition grade</Text>
+                <Text style={styles.expireText}>{product.nutritionGrade}</Text>
+              </View>
+            </View>
+          )
+        ) : (
+          <View style={styles.statusCard}>
+            <View>
+              <Text style={styles.smallText}>Status</Text>
+              <Text style={styles.expireText}>Expiry</Text>
+            </View>
+            <View style={styles.rightAlign}>
+              <Text style={styles.smallText}>Best before</Text>
+              <Text style={styles.dateText}>
+                {product.expiryDate
+                  ? new Date(product.expiryDate).toLocaleDateString()
+                  : '-'}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {isScannedFood && product.ingredients && (
+          <View style={styles.ingredientsCard}>
+            <Text style={styles.ingredientsTitle}>Ingredients</Text>
+            <Text style={styles.ingredientsText}>{product.ingredients}</Text>
+          </View>
+        )}
+
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.pantryButton}
-            onPress={() => setMessage('✅ Product added to pantry successfully!')}
-          >
+          <TouchableOpacity style={styles.pantryButton} onPress={handleAddToPantry}>
             <Text style={styles.pantryButtonText}>Add to pantry</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Feedback Message */}
-        {message !== '' && (
-          <Text style={styles.successMessage}>{message}</Text>
-        )}
+        {message !== '' && <Text style={styles.successMessage}>{message}</Text>}
 
       </ScrollView>
     </SafeAreaView>
@@ -92,6 +169,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 40,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 60,
   },
   backButton: {
     flexDirection: 'row',
@@ -182,5 +265,21 @@ const styles = StyleSheet.create({
     color: '#1B5E20',
     fontWeight: '600',
     marginTop: 12,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#F44336',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#2FA05A',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });

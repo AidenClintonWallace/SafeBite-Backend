@@ -11,26 +11,42 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { foodAPI } from '../src/services/foodApi';
 
-export default function Scanner() {
+export default function Scanner({ navigation }) {
   const [manualCode, setManualCode] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSearch = () => {
-    console.log('Searching barcode:', manualCode);
+  const handleSearch = async () => {
+    if (!manualCode.trim()) {
+      Alert.alert('Enter a barcode', 'Please type or scan a barcode first.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const food = await foodAPI.getFoodByBarcode(manualCode.trim());
+
+      // Hand the full scanned result straight to the product screen -
+      // no need to re-fetch, FoodController already returns everything.
+      navigation?.navigate('Product', { food });
+    } catch (err) {
+      Alert.alert('Not found', err.message || 'Could not find that product');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* Top Title */}
       <Text style={styles.headerTitle}>Scan barcode</Text>
 
-      {/* Camera Viewfinder Placeholder */}
       <View style={styles.scannerFrame}>
-        {/* Dotted Grid Pattern Visual */}
         <View style={styles.gridContainer}>
           {Array.from({ length: 120 }).map((_, index) => (
             <View key={index} style={styles.dot} />
@@ -40,36 +56,25 @@ export default function Scanner() {
 
       <Text style={styles.subText}>Align barcode within the frame</Text>
 
-      {/* Manual Entry Section */}
       <View style={styles.manualCard}>
         <Text style={styles.manualLabel}>Or enter manually</Text>
         <View style={styles.inputRow}>
           <TextInput
-            placeholder=""
+            placeholder="e.g. 6001007051044"
+            placeholderTextColor="#889"
             value={manualCode}
             onChangeText={setManualCode}
             style={styles.input}
+            keyboardType="numeric"
           />
-          <TouchableOpacity style={styles.searchBtn} onPress={handleSearch}>
-            <Text style={styles.searchBtnText}>Search</Text>
+          <TouchableOpacity style={styles.searchBtn} onPress={handleSearch} disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.searchBtnText}>Search</Text>
+            )}
           </TouchableOpacity>
         </View>
-      </View>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity>
-          <Ionicons name="home-outline" size={28} color="#ffffff" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="search-outline" size={28} color="#ffffff" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="menu-outline" size={28} color="#ffffff" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="time-outline" size={28} color="#ffffff" />
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -150,17 +155,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 22,
     paddingVertical: 10,
+    minWidth: 76,
+    alignItems: 'center',
   },
   searchBtnText: {
     color: '#ffffff',
     fontWeight: '700',
     fontSize: 14,
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    width: '85%',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
   },
 });
