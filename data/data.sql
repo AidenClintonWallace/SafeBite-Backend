@@ -1,9 +1,10 @@
 -- insert SQL statements
 
 -- testing user info
-INSERT INTO USER (UserID, Username, Email) 
-VALUES (1, 'TestUser', 'test@safebite.com') 
-ON DUPLICATE KEY UPDATE UserID=UserID;
+INSERT INTO users (full_name, email, phone_number, password_hash) VALUES
+('Ricardo Manuel', 'ricardo@safebite.com', '0730122510', '$2b$10$hashed_password_for_ricardo'),
+('Test User', 'test@safebite.com', '0812345678', '$2b$10$hashed_password_for_test'),
+('Jane Doe', 'jane@safebite.com', '0823456789', '$2b$10$hashed_password_for_jane');
 
 -- testing product item
 INSERT INTO FoodProduct (
