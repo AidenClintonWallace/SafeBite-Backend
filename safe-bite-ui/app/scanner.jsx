@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { foodAPI } from '../src/services/foodApi';
+import { productAPI } from '../src/services/productApi';
 
 export default function Scanner({ navigation }) {
   const [manualCode, setManualCode] = useState('');
