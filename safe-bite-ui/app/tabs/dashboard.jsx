@@ -3,9 +3,12 @@ Student Number:218275358
  DashboardScreen*/
 
 import React from 'react';
+import { useRouter } from 'expo-router';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 
 export default function Dashboard() {
+    const router = useRouter();
+
     return (
         <ScrollView
             style={{
@@ -35,6 +38,7 @@ export default function Dashboard() {
             </Text>
 
             <TouchableOpacity
+                onPress={() => router.push('/scanner')}
                 style={{
                     backgroundColor: '#2E7D32',
                     padding: 15,
