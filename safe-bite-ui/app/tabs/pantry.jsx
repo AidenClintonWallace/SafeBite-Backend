@@ -1,740 +1,224 @@
 /*Somila Ndoboza
 Student Number: 231157592 
  Pantry Screen*/
-import React, { useState, useEffect } from 'react';
+ 
+ import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
   StyleSheet,
+  Text,
+  View,
+  SafeAreaView,
   FlatList,
+  Image,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
-  RefreshControl,
-  Modal,
   TextInput,
-  ScrollView,
+  Alert,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { supabase } from '../../src/services/supabaseClient'; // Adjust path if needed
+import { Ionicons, Feather } from '@expo/vector-icons';
+import { supabase } from '../../src/services/supabaseClient';
 
-const USER_ID = 1;
-
-export default function PantryScreen({ navigation }) {
+export default function PantryScreen() {
   const [pantryItems, setPantryItems] = useState([]);
-  const [filteredItems, setFilteredItems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedFilter, setSelectedFilter] = useState('ALL');
-  const [selectedSort, setSelectedSort] = useState('earliest_expiry');
-  const [refreshing, setRefreshing] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showSortModal, setShowSortModal] = useState(false);
-  const [newItem, setNewItem] = useState({
-    productName: '',
-    expiryDate: '',
-    quantity: '1',
-    category: '',
-  });
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchPantryItems();
   }, []);
 
-  useEffect(() => {
-    applyFilterAndSort();
-  }, [pantryItems, selectedFilter, selectedSort]);
-
-  // Fetch pantry items from Supabase & calculate status dynamically
   const fetchPantryItems = async () => {
-    setLoading(true);
-    setError(null);
-
     try {
-      const { data, error: fetchErr } = await supabase
+      setLoading(true);
+      const { data, error } = await supabase
         .from('pantry')
         .select(`
-          pantry_id,
-          quantity,
-          added_date,
-          user_id,
+          *,
           food_product (
-            product_id,
-            name
+            product_name,
+            category,
+            image_url
           )
         `)
-        .eq('user_id', USER_ID);
+        .order('expiration_date', { ascending: true });
 
-      if (fetchErr) throw fetchErr;
-
-      const today = new Date();
-
-      // Transform raw rows into structured data with dynamic expiry status
-      const formattedData = (data || []).map((item) => {
-        // Calculate dynamic expiry status for testing
-        const added = new Date(item.added_date || today);
-        const estimatedExpiry = new Date(added);
-        estimatedExpiry.setDate(estimatedExpiry.getDate() + 7); // Default 7-day shelf life test
-
-        const diffTime = estimatedExpiry - today;
-        const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        let status = 'SAFE';
-        if (daysUntil <= 0) {
-          status = 'EXPIRED';
-        } else if (daysUntil <= 3) {
-          status = 'SOON';
-        }
-
-        return {
-          pantryId: item.pantry_id,
-          productName: item.food_product?.name || 'Unnamed Product',
-          expiryDate: estimatedExpiry.toISOString().split('T')[0],
-          quantity: item.quantity,
-          expiryStatus: status,
-          daysUntilExpiry: daysUntil,
-        };
-      });
-
-      setPantryItems(formattedData);
+      if (error) throw error;
+      setPantryItems(data || []);
     } catch (err) {
-      setError(err.message || 'Failed to load pantry items');
-      console.error('Error fetching pantry:', err);
+      console.error('Error fetching pantry:', err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter & Sort Logic
-  const applyFilterAndSort = () => {
-    let items = [...pantryItems];
-
-    // Filter button click logic
-    if (selectedFilter !== 'ALL') {
-      items = items.filter((item) => {
-        if (selectedFilter === 'EXPIRED' || selectedFilter === 'Exp') {
-          return item.expiryStatus === 'EXPIRED';
-        }
-        return item.expiryStatus === selectedFilter;
-      });
-    }
-
-    // Sort selection logic
-    items.sort((a, b) => {
-      switch (selectedSort) {
-        case 'earliest_expiry':
-          return new Date(a.expiryDate) - new Date(b.expiryDate);
-        case 'latest_expiry':
-          return new Date(b.expiryDate) - new Date(a.expiryDate);
-        case 'name_asc':
-          return (a.productName || '').localeCompare(b.productName || '');
-        case 'name_desc':
-          return (b.productName || '').localeCompare(a.productName || '');
-        default:
-          return 0;
-      }
-    });
-
-    setFilteredItems(items);
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchPantryItems();
-    setRefreshing(false);
-  };
-
-  // Add Item Functionality
-  const handleAddItem = async () => {
-    if (!newItem.productName || !newItem.quantity) {
-      Alert.alert('Validation Error', 'Please enter at least a product name and quantity');
-      return;
-    }
-
+  const removeItem = async (pantryId) => {
     try {
-      // 1. Insert or match product in food_product table
-      const { data: prodData, error: prodErr } = await supabase
-        .from('food_product')
-        .insert([{ name: newItem.productName }])
-        .select()
-        .single();
+      const { error } = await supabase
+        .from('pantry')
+        .delete()
+        .eq('pantry_id', pantryId);
 
-      if (prodErr && !prodData) throw prodErr;
-
-      // 2. Add entry to pantry table
-      const { error: pantryErr } = await supabase.from('pantry').insert([
-        {
-          user_id: USER_ID,
-          product_id: prodData.product_id,
-          quantity: parseInt(newItem.quantity, 10),
-          added_date: newItem.expiryDate || new Date().toISOString().split('T')[0],
-        },
-      ]);
-
-      if (pantryErr) throw pantryErr;
-
-      Alert.alert('Success', 'Item added to pantry successfully');
-      setShowAddModal(false);
-      setNewItem({ productName: '', expiryDate: '', quantity: '1', category: '' });
-      await fetchPantryItems();
+      if (error) throw error;
+      setPantryItems((prev) => prev.filter((item) => item.pantry_id !== pantryId));
     } catch (err) {
-      console.error('Error adding pantry item:', err);
-      Alert.alert('Error', err.message || 'Failed to add item');
+      Alert.alert('Error', 'Failed to remove item');
     }
   };
 
-  // Delete Item Functionality
-  const handleDeleteItem = (pantryId) => {
-    Alert.alert(
-      'Delete Item',
-      'Are you sure you want to remove this item from your pantry?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error: delErr } = await supabase
-                .from('pantry')
-                .delete()
-                .eq('pantry_id', pantryId);
+  const getExpiryBadge = (dateString) => {
+    if (!dateString) return { text: 'No Expiration', bg: '#e5e7eb', color: '#374151' };
+    const today = new Date();
+    const expiry = new Date(dateString);
+    const diffTime = expiry - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-              if (delErr) throw delErr;
+    if (diffDays < 0) return { text: 'Expired', bg: '#fee2e2', color: '#dc2626' };
+    if (diffDays <= 3) return { text: `${diffDays} days left`, bg: '#fef08a', color: '#854d0e' };
+    return { text: `${diffDays} days left`, bg: '#dcfce7', color: '#166534' };
+  };
 
-              Alert.alert('Success', 'Item removed from pantry');
-              await fetchPantryItems();
-            } catch (err) {
-              console.error('Error deleting pantry item:', err);
-              Alert.alert('Error', err.message || 'Failed to remove pantry item');
-            }
-          },
-        },
-      ]
+  const filteredItems = pantryItems.filter((item) => {
+    const name = item.food_product?.product_name || item.custom_name || '';
+    return name.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  const renderCard = ({ item }) => {
+    const productName = item.food_product?.product_name || item.custom_name || 'Pantry Item';
+    const category = item.food_product?.category || 'General Pantry';
+    const imageUrl = item.food_product?.image_url || 'https://via.placeholder.com/400x200';
+    const badge = getExpiryBadge(item.expiration_date);
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.imageContainer}>
+          <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
+          
+          <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.statusBadgeText, { color: badge.color }]}>{badge.text}</Text>
+          </View>
+
+          <TouchableOpacity style={styles.actionIconButton} onPress={() => removeItem(item.pantry_id)}>
+            <Ionicons name="trash-outline" size={18} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.cardDetails}>
+          <Text style={styles.categoryText}>{category}</Text>
+          <Text style={styles.productTitle} numberOfLines={1}>{productName}</Text>
+          
+          <View style={styles.metaRow}>
+            <Ionicons name="calendar-outline" size={14} color="#6b7280" />
+            <Text style={styles.metaText}>
+              Expires: {item.expiration_date ? new Date(item.expiration_date).toLocaleDateString() : 'N/A'}
+            </Text>
+            {item.quantity && (
+              <Text style={styles.quantityText}>• Qty: {item.quantity}</Text>
+            )}
+          </View>
+        </View>
+      </View>
     );
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'SAFE':
-        return '#4CAF50';
-      case 'SOON':
-        return '#FFC107';
-      case 'EXPIRED':
-        return '#F44336';
-      default:
-        return '#9E9E9E';
-    }
-  };
-
-  const getStatusLabel = (status, daysUntil) => {
-    if (status === 'EXPIRED') return 'Expired';
-    if (status === 'SOON' && daysUntil !== null) {
-      return daysUntil <= 0 ? 'Expired' : `${daysUntil} day${daysUntil !== 1 ? 's' : ''}`;
-    }
-    return status;
-  };
-
-  const renderPantryItem = ({ item }) => (
-    <View style={styles.productCard}>
-      <View style={styles.productInfo}>
-        <Text style={styles.productName}>{item.productName}</Text>
-        <Text style={styles.expiryText}>
-          Expires {new Date(item.expiryDate).toLocaleDateString()}
-        </Text>
-        {item.quantity && <Text style={styles.quantityText}>Qty: {item.quantity}</Text>}
-      </View>
-      <View style={styles.statusBadgeContainer}>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusColor(item.expiryStatus) },
-          ]}
-        >
-          <Text style={styles.statusText}>
-            {getStatusLabel(item.expiryStatus, item.daysUntilExpiry)}
-          </Text>
-        </View>
-      </View>
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => handleDeleteItem(item.pantryId)}
-      >
-        <MaterialCommunityIcons name="delete" size={20} color="#F44336" />
-      </TouchableOpacity>
-    </View>
-  );
-
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.toggleDrawer?.()}>
-          <MaterialCommunityIcons name="menu" size={28} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>SafeBite</Text>
-        <View style={{ width: 28 }} />
+        <Text style={styles.headerTitle}>My Pantry</Text>
       </View>
 
-      {/* Content */}
-      <ScrollView
-        style={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        {/* Title and Sort Button */}
-        <View style={styles.titleRow}>
-          <Text style={styles.screenTitle}>My Pantry</Text>
-          <TouchableOpacity
-            style={styles.sortButton}
-            onPress={() => setShowSortModal(true)}
-          >
-            <Text style={styles.sortButtonText}>Sort</Text>
-          </TouchableOpacity>
-        </View>
+      <View style={styles.searchBar}>
+        <Feather name="search" size={18} color="#6b7280" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Find items in your pantry..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
 
-        {/* Filter Buttons (Pills) */}
-        <View style={styles.filterContainer}>
-          {['ALL', 'SAFE', 'SOON', 'EXPIRED'].map((filter) => (
-            <TouchableOpacity
-              key={filter}
-              style={[
-                styles.filterButton,
-                selectedFilter === filter && styles.filterButtonActive,
-              ]}
-              onPress={() => setSelectedFilter(filter)}
-            >
-              <Text
-                style={[
-                  styles.filterButtonText,
-                  selectedFilter === filter && styles.filterButtonTextActive,
-                ]}
-              >
-                {filter === 'EXPIRED' ? 'Exp' : filter}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Loading State */}
-        {loading && !refreshing && (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color="#4CAF50" />
-            <Text style={styles.loadingText}>Loading pantry items...</Text>
-          </View>
-        )}
-
-        {/* Error State */}
-        {error && !loading && (
-          <View style={styles.centerContainer}>
-            <MaterialCommunityIcons name="alert-circle" size={48} color="#F44336" />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchPantryItems}>
-              <Text style={styles.retryButtonText}>Try Again</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Empty State */}
-        {!loading && !error && filteredItems.length === 0 && (
-          <View style={styles.centerContainer}>
-            <MaterialCommunityIcons name="inbox-multiple" size={48} color="#9E9E9E" />
-            <Text style={styles.emptyText}>No items found in this view</Text>
-            <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
-              <Text style={styles.addButtonText}>+ Add Product</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Pantry List */}
-        {!loading && !error && filteredItems.length > 0 && (
-          <View style={styles.listContainer}>
-            <FlatList
-              data={filteredItems}
-              renderItem={renderPantryItem}
-              keyExtractor={(item) => item.pantryId.toString()}
-              scrollEnabled={false}
-            />
-          </View>
-        )}
-
-        {/* Bottom Add Product Button */}
-        {filteredItems.length > 0 && (
-          <TouchableOpacity
-            style={styles.addButtonBottom}
-            onPress={() => setShowAddModal(true)}
-          >
-            <MaterialCommunityIcons name="plus" size={24} color="white" />
-            <Text style={styles.addButtonBottomText}>Add Product</Text>
-          </TouchableOpacity>
-        )}
-      </ScrollView>
-
-      {/* Add Item Modal */}
-      <Modal visible={showAddModal} transparent animationType="slide">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Product to Pantry</Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                <MaterialCommunityIcons name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalForm}>
-              <Text style={styles.formLabel}>Product Name *</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g., Lucky Star Pilchards"
-                value={newItem.productName}
-                onChangeText={(text) => setNewItem({ ...newItem, productName: text })}
-              />
-
-              <Text style={styles.formLabel}>Expiry Date</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="YYYY-MM-DD"
-                value={newItem.expiryDate}
-                onChangeText={(text) => setNewItem({ ...newItem, expiryDate: text })}
-              />
-
-              <Text style={styles.formLabel}>Quantity *</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="1"
-                keyboardType="numeric"
-                value={newItem.quantity}
-                onChangeText={(text) => setNewItem({ ...newItem, quantity: text })}
-              />
-            </ScrollView>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setShowAddModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.submitButton} onPress={handleAddItem}>
-                <Text style={styles.submitButtonText}>Add Item</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Sort Options Modal */}
-      <Modal visible={showSortModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.sortModalContent}>
-            <Text style={styles.sortModalTitle}>Sort By</Text>
-            {[
-              { key: 'earliest_expiry', label: 'Earliest Expiry' },
-              { key: 'latest_expiry', label: 'Latest Expiry' },
-              { key: 'name_asc', label: 'Product Name A-Z' },
-              { key: 'name_desc', label: 'Product Name Z-A' },
-            ].map((option) => (
-              <TouchableOpacity
-                key={option.key}
-                style={styles.sortOption}
-                onPress={() => {
-                  setSelectedSort(option.key);
-                  setShowSortModal(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.sortOptionText,
-                    selectedSort === option.key && styles.sortOptionTextActive,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-                {selectedSort === option.key && (
-                  <MaterialCommunityIcons name="check" size={20} color="#4CAF50" />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Modal>
-    </View>
+      {loading ? (
+        <ActivityIndicator size="large" color="#0c7a43" style={{ marginTop: 40 }} />
+      ) : (
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => item.pantry_id.toString()}
+          renderItem={renderCard}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No pantry items found.</Text>
+          }
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  header: {
-    backgroundColor: '#333',
-    paddingTop: 16,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#0f172a' },
+  searchBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: '#ffffff',
+    marginHorizontal: 20,
+    marginVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 25,
+    height: 46,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  screenTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  sortButton: {
-    backgroundColor: '#E0E0E0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  sortButtonText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    gap: 8,
-  },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 14, color: '#1e293b' },
+  listContainer: { paddingHorizontal: 20, paddingBottom: 24 },
+  card: {
+    backgroundColor: '#ffffff',
     borderRadius: 20,
-    backgroundColor: '#E0E0E0',
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  filterButtonActive: {
-    backgroundColor: '#4CAF50',
-  },
-  filterButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#666',
-  },
-  filterButtonTextActive: {
-    color: 'white',
-  },
-  centerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 40,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 12,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#F44336',
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: 16,
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 4,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#999',
-    marginTop: 12,
-  },
-  addButton: {
-    marginTop: 16,
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 4,
-  },
-  addButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  listContainer: {
-    marginBottom: 20,
-  },
-  productCard: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  productInfo: {
-    flex: 1,
-  },
-  productName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  expiryText: {
-    fontSize: 13,
-    color: '#999',
-    marginTop: 4,
-  },
-  quantityText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  statusBadgeContainer: {
-    marginRight: 8,
-  },
+  imageContainer: { height: 130, width: '100%', position: 'relative' },
+  cardImage: { width: '100%', height: '100%' },
   statusBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 5,
+    borderRadius: 14,
   },
-  statusText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  deleteButton: {
-    padding: 8,
-  },
-  addButtonBottom: {
-    backgroundColor: '#4CAF50',
-    flexDirection: 'row',
+  statusBadgeText: { fontSize: 12, fontWeight: '700' },
+  actionIconButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#ffffff',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 4,
-    marginVertical: 20,
-    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  addButtonBottomText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingTop: 16,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  modalForm: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  formLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 6,
-    marginTop: 12,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#333',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#E0E0E0',
-    paddingVertical: 12,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  submitButton: {
-    flex: 1,
-    backgroundColor: '#4CAF50',
-    paddingVertical: 12,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sortModalContent: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 16,
-    minWidth: '70%',
-  },
-  sortModalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  sortOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
-  },
-  sortOptionText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  sortOptionTextActive: {
-    fontWeight: 'bold',
-    color: '#4CAF50',
-  },
+  cardDetails: { padding: 14 },
+  categoryText: { fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 },
+  productTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginVertical: 2 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  metaText: { fontSize: 12, color: '#64748b', marginLeft: 4 },
+  quantityText: { fontSize: 12, color: '#64748b', marginLeft: 6, fontWeight: '600' },
+  emptyText: { textAlign: 'center', color: '#94a3b8', marginTop: 40, fontSize: 14 },
 });

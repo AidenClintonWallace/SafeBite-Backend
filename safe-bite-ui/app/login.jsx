@@ -50,7 +50,7 @@ export default function LoginScreen() {
         if (error || !data) throw new Error('Invalid email or password');
 
         Alert.alert('Success', 'Logged in successfully!');
-        router.replace('/dashboard');
+        router.replace('/(tabs)/dashboard');
       } else {
         // --- SIGN UP FLOW ---
         const { data, error } = await supabase
@@ -112,7 +112,7 @@ export default function LoginScreen() {
               <Text style={styles.label}>First Name</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g. Olly"
+                placeholder="e.g. John Doe"
                 value={firstName}
                 onChangeText={setFirstName}
               />
