@@ -69,7 +69,7 @@ export default function LoginScreen() {
         if (error) throw error;
 
         Alert.alert('Success', 'Account created successfully!');
-        router.replace('/dashboard');
+        router.replace('/(tabs)/dashboard');
       }
     } catch (err) {
       Alert.alert('Error', err.message || 'Authentication failed');
