@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 
 // Standardized import path and variable name
-import { productAPI } from '../src/services/productApi';
+import { productAPI } from '../../src/services/productApi';
 
 export default function Scanner({ navigation }) {
   const [manualCode, setManualCode] = useState('');
