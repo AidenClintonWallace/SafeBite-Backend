@@ -1,9 +1,7 @@
 /*Somila Ndoboza
 Student Number: 231157592 
- Report Screen*/
-
+ Pantry Screen*/
 import React, { useState, useEffect } from 'react';
-import { pantryAPI } from '../src/services/pantryApi';
 import {
   View,
   Text,
@@ -18,10 +16,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { supabase } from '../src/services/supabaseClient'; // Adjust path if needed
 
 const USER_ID = 1;
 
-const PantryScreen = ({ navigation }) => {
+export default function PantryScreen({ navigation }) {
   const [pantryItems, setPantryItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -34,7 +33,7 @@ const PantryScreen = ({ navigation }) => {
   const [newItem, setNewItem] = useState({
     productName: '',
     expiryDate: '',
-    quantity: '',
+    quantity: '1',
     category: '',
   });
 
@@ -46,23 +45,58 @@ const PantryScreen = ({ navigation }) => {
     applyFilterAndSort();
   }, [pantryItems, selectedFilter, selectedSort]);
 
+  // Fetch pantry items from Supabase & calculate status dynamically
   const fetchPantryItems = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      let data;
+      const { data, error: fetchErr } = await supabase
+        .from('pantry')
+        .select(`
+          pantry_id,
+          quantity,
+          added_date,
+          user_id,
+          food_product (
+            product_id,
+            name
+          )
+        `)
+        .eq('user_id', USER_ID);
 
-      if (selectedFilter === 'ALL') {
-        data = await pantryAPI.getPantryByUser(USER_ID);
-      } else {
-        data = await pantryAPI.getPantryByUserAndStatus(
-          USER_ID,
-          selectedFilter
-        );
-      }
+      if (fetchErr) throw fetchErr;
 
-      setPantryItems(data || []);
+      const today = new Date();
+
+      // Transform raw rows into structured data with dynamic expiry status
+      const formattedData = (data || []).map((item) => {
+        // Calculate dynamic expiry status for testing
+        const added = new Date(item.added_date || today);
+        const estimatedExpiry = new Date(added);
+        estimatedExpiry.setDate(estimatedExpiry.getDate() + 7); // Default 7-day shelf life test
+
+        const diffTime = estimatedExpiry - today;
+        const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        let status = 'SAFE';
+        if (daysUntil <= 0) {
+          status = 'EXPIRED';
+        } else if (daysUntil <= 3) {
+          status = 'SOON';
+        }
+
+        return {
+          pantryId: item.pantry_id,
+          productName: item.food_product?.name || 'Unnamed Product',
+          expiryDate: estimatedExpiry.toISOString().split('T')[0],
+          quantity: item.quantity,
+          expiryStatus: status,
+          daysUntilExpiry: daysUntil,
+        };
+      });
+
+      setPantryItems(formattedData);
     } catch (err) {
       setError(err.message || 'Failed to load pantry items');
       console.error('Error fetching pantry:', err);
@@ -71,13 +105,21 @@ const PantryScreen = ({ navigation }) => {
     }
   };
 
+  // Filter & Sort Logic
   const applyFilterAndSort = () => {
     let items = [...pantryItems];
 
+    // Filter button click logic
     if (selectedFilter !== 'ALL') {
-      items = items.filter(item => item.expiryStatus === selectedFilter);
+      items = items.filter((item) => {
+        if (selectedFilter === 'EXPIRED' || selectedFilter === 'Exp') {
+          return item.expiryStatus === 'EXPIRED';
+        }
+        return item.expiryStatus === selectedFilter;
+      });
     }
 
+    // Sort selection logic
     items.sort((a, b) => {
       switch (selectedSort) {
         case 'earliest_expiry':
@@ -102,102 +144,75 @@ const PantryScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
- const handleAddItem = async () => {
-   if (
-     !newItem.productName ||
-     !newItem.expiryDate ||
-     !newItem.quantity
-   ) {
-     Alert.alert(
-       'Validation Error',
-       'Please fill in all required fields'
-     );
-     return;
-   }
+  // Add Item Functionality
+  const handleAddItem = async () => {
+    if (!newItem.productName || !newItem.quantity) {
+      Alert.alert('Validation Error', 'Please enter at least a product name and quantity');
+      return;
+    }
 
-   try {
-     // First create the product
-     const product = await pantryAPI.addProduct({
-       productName: newItem.productName,
-       expiryDate: newItem.expiryDate,
-       category: newItem.category || null,
-     });
+    try {
+      // 1. Insert or match product in food_product table
+      const { data: prodData, error: prodErr } = await supabase
+        .from('food_product')
+        .insert([{ name: newItem.productName }])
+        .select()
+        .single();
 
-     // Then add the product to the user's pantry
-     await pantryAPI.addToPantry({
-       userId: USER_ID,
-       productId: product.productId,
-       quantity: parseInt(newItem.quantity, 10),
-       addedDate: new Date().toISOString().split('T')[0],
-     });
+      if (prodErr && !prodData) throw prodErr;
 
-     Alert.alert(
-       'Success',
-       'Item added to pantry successfully'
-     );
+      // 2. Add entry to pantry table
+      const { error: pantryErr } = await supabase.from('pantry').insert([
+        {
+          user_id: USER_ID,
+          product_id: prodData.product_id,
+          quantity: parseInt(newItem.quantity, 10),
+          added_date: newItem.expiryDate || new Date().toISOString().split('T')[0],
+        },
+      ]);
 
-     setShowAddModal(false);
+      if (pantryErr) throw pantryErr;
 
-     setNewItem({
-       productName: '',
-       expiryDate: '',
-       quantity: '',
-       category: '',
-     });
+      Alert.alert('Success', 'Item added to pantry successfully');
+      setShowAddModal(false);
+      setNewItem({ productName: '', expiryDate: '', quantity: '1', category: '' });
+      await fetchPantryItems();
+    } catch (err) {
+      console.error('Error adding pantry item:', err);
+      Alert.alert('Error', err.message || 'Failed to add item');
+    }
+  };
 
-     await fetchPantryItems();
+  // Delete Item Functionality
+  const handleDeleteItem = (pantryId) => {
+    Alert.alert(
+      'Delete Item',
+      'Are you sure you want to remove this item from your pantry?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error: delErr } = await supabase
+                .from('pantry')
+                .delete()
+                .eq('pantry_id', pantryId);
 
-   } catch (err) {
-     console.error('Error adding pantry item:', err);
+              if (delErr) throw delErr;
 
-     Alert.alert(
-       'Error',
-       err.message || 'Failed to add item'
-     );
-   }
- };
-
- const handleDeleteItem = (pantryId) => {
-   Alert.alert(
-     'Delete Item',
-     'Are you sure you want to remove this item from your pantry?',
-     [
-       {
-         text: 'Cancel',
-         style: 'cancel',
-       },
-       {
-         text: 'Delete',
-         style: 'destructive',
-
-         onPress: async () => {
-           try {
-             await pantryAPI.removePantryItem(pantryId);
-
-             Alert.alert(
-               'Success',
-               'Item removed from pantry'
-             );
-
-             await fetchPantryItems();
-
-           } catch (err) {
-             console.error(
-               'Error deleting pantry item:',
-               err
-             );
-
-             Alert.alert(
-               'Error',
-               err.message ||
-                 'Failed to remove pantry item'
-             );
-           }
-         },
-       },
-     ]
-   );
- };
+              Alert.alert('Success', 'Item removed from pantry');
+              await fetchPantryItems();
+            } catch (err) {
+              console.error('Error deleting pantry item:', err);
+              Alert.alert('Error', err.message || 'Failed to remove pantry item');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -261,12 +276,12 @@ const PantryScreen = ({ navigation }) => {
         <View style={{ width: 28 }} />
       </View>
 
-      {/* Main Content */}
+      {/* Content */}
       <ScrollView
         style={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Title and Sort */}
+        {/* Title and Sort Button */}
         <View style={styles.titleRow}>
           <Text style={styles.screenTitle}>My Pantry</Text>
           <TouchableOpacity
@@ -277,7 +292,7 @@ const PantryScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Filter Buttons */}
+        {/* Filter Buttons (Pills) */}
         <View style={styles.filterContainer}>
           {['ALL', 'SAFE', 'SOON', 'EXPIRED'].map((filter) => (
             <TouchableOpacity
@@ -313,10 +328,7 @@ const PantryScreen = ({ navigation }) => {
           <View style={styles.centerContainer}>
             <MaterialCommunityIcons name="alert-circle" size={48} color="#F44336" />
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => fetchPantryItems()}
-            >
+            <TouchableOpacity style={styles.retryButton} onPress={fetchPantryItems}>
               <Text style={styles.retryButtonText}>Try Again</Text>
             </TouchableOpacity>
           </View>
@@ -326,11 +338,8 @@ const PantryScreen = ({ navigation }) => {
         {!loading && !error && filteredItems.length === 0 && (
           <View style={styles.centerContainer}>
             <MaterialCommunityIcons name="inbox-multiple" size={48} color="#9E9E9E" />
-            <Text style={styles.emptyText}>Your pantry is empty</Text>
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => setShowAddModal(true)}
-            >
+            <Text style={styles.emptyText}>No items found in this view</Text>
+            <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
               <Text style={styles.addButtonText}>+ Add Product</Text>
             </TouchableOpacity>
           </View>
@@ -348,7 +357,7 @@ const PantryScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Add Button */}
+        {/* Bottom Add Product Button */}
         {filteredItems.length > 0 && (
           <TouchableOpacity
             style={styles.addButtonBottom}
@@ -360,7 +369,7 @@ const PantryScreen = ({ navigation }) => {
         )}
       </ScrollView>
 
-      {/* Add Modal */}
+      {/* Add Item Modal */}
       <Modal visible={showAddModal} transparent animationType="slide">
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -377,19 +386,15 @@ const PantryScreen = ({ navigation }) => {
                 style={styles.textInput}
                 placeholder="e.g., Lucky Star Pilchards"
                 value={newItem.productName}
-                onChangeText={(text) =>
-                  setNewItem({ ...newItem, productName: text })
-                }
+                onChangeText={(text) => setNewItem({ ...newItem, productName: text })}
               />
 
-              <Text style={styles.formLabel}>Expiry Date *</Text>
+              <Text style={styles.formLabel}>Expiry Date</Text>
               <TextInput
                 style={styles.textInput}
                 placeholder="YYYY-MM-DD"
                 value={newItem.expiryDate}
-                onChangeText={(text) =>
-                  setNewItem({ ...newItem, expiryDate: text })
-                }
+                onChangeText={(text) => setNewItem({ ...newItem, expiryDate: text })}
               />
 
               <Text style={styles.formLabel}>Quantity *</Text>
@@ -398,19 +403,7 @@ const PantryScreen = ({ navigation }) => {
                 placeholder="1"
                 keyboardType="numeric"
                 value={newItem.quantity}
-                onChangeText={(text) =>
-                  setNewItem({ ...newItem, quantity: text })
-                }
-              />
-
-              <Text style={styles.formLabel}>Category</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g., Canned Goods"
-                value={newItem.category}
-                onChangeText={(text) =>
-                  setNewItem({ ...newItem, category: text })
-                }
+                onChangeText={(text) => setNewItem({ ...newItem, quantity: text })}
               />
             </ScrollView>
 
@@ -421,10 +414,7 @@ const PantryScreen = ({ navigation }) => {
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.submitButton}
-                onPress={handleAddItem}
-              >
+              <TouchableOpacity style={styles.submitButton} onPress={handleAddItem}>
                 <Text style={styles.submitButtonText}>Add Item</Text>
               </TouchableOpacity>
             </View>
@@ -432,7 +422,7 @@ const PantryScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Sort Modal */}
+      {/* Sort Options Modal */}
       <Modal visible={showSortModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.sortModalContent}>
@@ -469,7 +459,7 @@ const PantryScreen = ({ navigation }) => {
       </Modal>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -748,6 +738,3 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
   },
 });
-
-export default PantryScreen;
-

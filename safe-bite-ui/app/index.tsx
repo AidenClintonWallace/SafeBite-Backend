@@ -1,5 +1,5 @@
-import Navbar from "../src/components/Navbar";
+import { Redirect } from 'expo-router';
 
-export default function Page() {
-  return <Navbar />;
+export default function Index() {
+  return <Redirect href="/login" />;
 }

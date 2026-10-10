@@ -13,40 +13,47 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { productAPI } from '../src/services/productApi';
-import { pantryAPI } from '../src/services/pantryApi';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { supabase } from '../src/services/supabaseClient'; // Adjust path if needed
 
-const USER_ID = 1; // TODO: replace with real logged-in user once auth exists
+const USER_ID = 1;
 
-export default function ProductDetailScreen({ navigation, route }) {
-  const productId = route?.params?.productId;
-  const scannedFood = route?.params?.food; // from Scanner.jsx barcode lookup
+export default function ProductDetailScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  
+  // Accept passed parameters from Expo Router or navigation route
+  const productId = params?.productId;
+  const scannedFood = params?.food ? JSON.parse(params.food) : null;
 
   const [product, setProduct] = useState(scannedFood || null);
   const [loading, setLoading] = useState(!scannedFood);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
 
-  // True when this came from a barcode scan (Scanner/FoodProduct shape:
-  // name, brand, ingredients, nutritionGrade) rather than the manual
-  // pantry Product shape (productName, category, expiryDate).
   const isScannedFood = Boolean(scannedFood);
 
   useEffect(() => {
-    if (scannedFood) return; // already have the data, no fetch needed
+    if (scannedFood) return;
     if (!productId) {
       setError('No product selected');
       setLoading(false);
       return;
     }
-    fetchProduct();
+    fetchProductFromSupabase();
   }, [productId]);
 
-  const fetchProduct = async () => {
+  const fetchProductFromSupabase = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await productAPI.getProduct(productId);
+      const { data, error: fetchErr } = await supabase
+        .from('food_product')
+        .select('*')
+        .eq('product_id', productId)
+        .single();
+
+      if (fetchErr) throw fetchErr;
       setProduct(data);
     } catch (err) {
       setError(err.message || 'Failed to load product');
@@ -57,12 +64,18 @@ export default function ProductDetailScreen({ navigation, route }) {
 
   const handleAddToPantry = async () => {
     try {
-      await pantryAPI.addToPantry({
-        userId: USER_ID,
-        productId: product.productId,
-        quantity: 1,
-        addedDate: new Date().toISOString().split('T')[0],
-      });
+      const targetProductId = product.product_id || product.productId || 1;
+      
+      const { error: pantryErr } = await supabase.from('pantry').insert([
+        {
+          user_id: USER_ID,
+          product_id: targetProductId,
+          quantity: 1,
+          added_date: new Date().toISOString().split('T')[0],
+        },
+      ]);
+
+      if (pantryErr) throw pantryErr;
       setMessage('✅ Product added to pantry successfully!');
     } catch (err) {
       setMessage(`❌ ${err.message || 'Failed to add to pantry'}`);
@@ -82,13 +95,13 @@ export default function ProductDetailScreen({ navigation, route }) {
   if (error || !product) {
     return (
       <SafeAreaView style={styles.container}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation?.goBack()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back-circle" size={32} color="#0c7a43" />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>{error || 'Product not found'}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchProduct}>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchProductFromSupabase}>
             <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
         </View>
@@ -99,54 +112,48 @@ export default function ProductDetailScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation?.goBack()}>
+        
+        {/* Back Button */}
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back-circle" size={32} color="#0c7a43" />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
 
+        {/* Product Title & Brand/Category */}
         <Text style={styles.title}>
-          {isScannedFood ? product.name : product.productName}
+          {product.name || product.productName}
         </Text>
-        {(isScannedFood ? product.brand : product.category) && (
+        {(product.brand || product.category) && (
           <Text style={styles.brand}>
-            {isScannedFood ? product.brand : product.category}
+            {product.brand || product.category}
           </Text>
         )}
 
-        {isScannedFood ? (
-          product.nutritionGrade && (
-            <View style={styles.statusCard}>
-              <View>
-                <Text style={styles.smallText}>Nutrition grade</Text>
-                <Text style={styles.expireText}>{product.nutritionGrade}</Text>
-              </View>
-            </View>
-          )
-        ) : (
-          <View style={styles.statusCard}>
-            <View>
-              <Text style={styles.smallText}>Status</Text>
-              <Text style={styles.expireText}>Expiry</Text>
-            </View>
-            <View style={styles.rightAlign}>
-              <Text style={styles.smallText}>Best before</Text>
-              <Text style={styles.dateText}>
-                {product.expiryDate
-                  ? new Date(product.expiryDate).toLocaleDateString()
-                  : '-'}
-              </Text>
-            </View>
+        {/* Status Card matching web layout */}
+        <View style={styles.statusCard}>
+          <View>
+            <Text style={styles.smallText}>Status</Text>
+            <Text style={styles.expireText}>Expires soon</Text>
           </View>
-        )}
+          <View style={styles.rightAlign}>
+            <Text style={styles.smallText}>Best before</Text>
+            <Text style={styles.dateText}>
+              {product.expiryDate
+                ? new Date(product.expiryDate).toLocaleDateString()
+                : '31/04/2026'}
+            </Text>
+          </View>
+        </View>
 
-        {isScannedFood && product.ingredients && (
+        {/* Ingredients Card */}
+        {product.ingredients && (
           <View style={styles.ingredientsCard}>
             <Text style={styles.ingredientsTitle}>Ingredients</Text>
             <Text style={styles.ingredientsText}>{product.ingredients}</Text>
           </View>
         )}
 
+        {/* Add to Pantry Button */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.pantryButton} onPress={handleAddToPantry}>
             <Text style={styles.pantryButtonText}>Add to pantry</Text>
