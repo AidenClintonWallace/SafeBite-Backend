@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import Dashboard from "../../app/dashboard";
-import PantryScreen from "../../app/pantry"; 
-import Profile from "../../app/profile";
+import Dashboard from "../../app/tabs/dashboard";
+import PantryScreen from "../../app/tabs/pantry"; 
+import Profile from "../../app/tabs/profile";
 import Scanner from "../../app/scanner";
 
 const Tab = createBottomTabNavigator();

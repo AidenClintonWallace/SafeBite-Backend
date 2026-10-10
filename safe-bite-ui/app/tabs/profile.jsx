@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { supabase } from '../src/services/supabaseClient'; // Adjust path if needed
+import { supabase } from '../../src/services/supabaseClient'; // Adjust path if needed
 
 const ProfileScreen = () => {
   const router = useRouter();

@@ -16,7 +16,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { supabase } from '../src/services/supabaseClient'; // Adjust path if needed
+import { supabase } from '../../src/services/supabaseClient'; // Adjust path if needed
 
 const USER_ID = 1;
 
