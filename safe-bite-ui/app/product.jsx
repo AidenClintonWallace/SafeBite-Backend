@@ -11,18 +11,19 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { supabase } from '../src/services/supabaseClient'; // Adjust path if needed
+import { supabase } from '../src/services/supabaseClient';
 
 const USER_ID = 1;
 
 export default function ProductDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  
-  // Accept passed parameters from Expo Router or navigation route
+
+  // Accept passed parameters from Expo Router
   const productId = params?.productId;
   const scannedFood = params?.food ? JSON.parse(params.food) : null;
 
@@ -30,8 +31,6 @@ export default function ProductDetailScreen() {
   const [loading, setLoading] = useState(!scannedFood);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
-
-  const isScannedFood = Boolean(scannedFood);
 
   useEffect(() => {
     if (scannedFood) return;
@@ -64,14 +63,15 @@ export default function ProductDetailScreen() {
 
   const handleAddToPantry = async () => {
     try {
-      const targetProductId = product.product_id || product.productId || 1;
-      
+      const targetProductId = product?.product_id || product?.productId || 1;
+
       const { error: pantryErr } = await supabase.from('pantry').insert([
         {
           user_id: USER_ID,
           product_id: targetProductId,
           quantity: 1,
           added_date: new Date().toISOString().split('T')[0],
+          expiration_date: product?.expiryDate || product?.expiration_date || null,
         },
       ]);
 
@@ -109,49 +109,55 @@ export default function ProductDetailScreen() {
     );
   }
 
+  // Map dynamic product fields (supports both Open Food Facts API & Supabase table structures)
+  const title = product.product_name || product.productName || product.name || 'Unknown Product';
+  const brand = product.brands || product.brand || product.category || 'General';
+  const imageUrl =
+    product.image_url ||
+    product.image_front_url ||
+    product.imageUrl ||
+    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800';
+  const ingredients = product.ingredients_text || product.ingredients || 'Ingredients not available.';
+  const expiryDisplay = product.expiryDate || product.expiration_date
+    ? new Date(product.expiryDate || product.expiration_date).toLocaleDateString()
+    : 'Not set';
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
+
         {/* Back Button */}
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back-circle" size={32} color="#0c7a43" />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
 
-        {/* Product Title & Brand/Category */}
-        <Text style={styles.title}>
-          {product.name || product.productName}
-        </Text>
-        {(product.brand || product.category) && (
-          <Text style={styles.brand}>
-            {product.brand || product.category}
-          </Text>
-        )}
+        {/* Dynamic Product Image */}
+        <View style={styles.imageContainer}>
+          <Image source={{ uri: imageUrl }} style={styles.productImage} resizeMode="contain" />
+        </View>
 
-        {/* Status Card matching web layout */}
+        {/* Product Title & Brand */}
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.brand}>{brand}</Text>
+
+        {/* Status Card */}
         <View style={styles.statusCard}>
           <View>
             <Text style={styles.smallText}>Status</Text>
-            <Text style={styles.expireText}>Expires soon</Text>
+            <Text style={styles.expireText}>Active</Text>
           </View>
           <View style={styles.rightAlign}>
             <Text style={styles.smallText}>Best before</Text>
-            <Text style={styles.dateText}>
-              {product.expiryDate
-                ? new Date(product.expiryDate).toLocaleDateString()
-                : '31/04/2026'}
-            </Text>
+            <Text style={styles.dateText}>{expiryDisplay}</Text>
           </View>
         </View>
 
         {/* Ingredients Card */}
-        {product.ingredients && (
-          <View style={styles.ingredientsCard}>
-            <Text style={styles.ingredientsTitle}>Ingredients</Text>
-            <Text style={styles.ingredientsText}>{product.ingredients}</Text>
-          </View>
-        )}
+        <View style={styles.ingredientsCard}>
+          <Text style={styles.ingredientsTitle}>Ingredients</Text>
+          <Text style={styles.ingredientsText}>{ingredients}</Text>
+        </View>
 
         {/* Add to Pantry Button */}
         <View style={styles.buttonContainer}>
@@ -194,6 +200,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 6,
   },
+  imageContainer: {
+    width: '100%',
+    height: 180,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  productImage: {
+    width: '90%',
+    height: '90%',
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -225,12 +245,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   expireText: {
-    color: '#F39C12',
+    color: '#D97706',
     fontSize: 15,
     fontWeight: 'bold',
   },
   dateText: {
-    color: '#F39C12',
+    color: '#D97706',
     fontSize: 15,
     fontWeight: 'bold',
   },
@@ -247,8 +267,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   ingredientsText: {
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 12,
+    lineHeight: 18,
     color: '#222222',
   },
   buttonContainer: {
@@ -257,8 +277,8 @@ const styles = StyleSheet.create({
   },
   pantryButton: {
     backgroundColor: '#2FA05A',
-    paddingVertical: 12,
-    paddingHorizontal: 32,
+    paddingVertical: 14,
+    paddingHorizontal: 36,
     borderRadius: 25,
     alignItems: 'center',
   },
