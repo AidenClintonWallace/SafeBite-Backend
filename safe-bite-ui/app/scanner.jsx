@@ -1,7 +1,6 @@
 /*Olwethu Mtwazi
 Student Number: 230036937
  Scanner Screen*/
-
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -14,6 +13,8 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+
+// Standardized import path and variable name
 import { productAPI } from '../src/services/productApi';
 
 export default function Scanner({ navigation }) {
@@ -28,10 +29,10 @@ export default function Scanner({ navigation }) {
 
     setLoading(true);
     try {
-      const food = await foodAPI.getFoodByBarcode(manualCode.trim());
+      // Calls the API to check your database
+      const food = await productAPI.getFoodByBarcode(manualCode.trim());
 
-      // Hand the full scanned result straight to the product screen -
-      // no need to re-fetch, FoodController already returns everything.
+      // Navigates to Product screen with the returned data
       navigation?.navigate('Product', { food });
     } catch (err) {
       Alert.alert('Not found', err.message || 'Could not find that product');

@@ -2,7 +2,7 @@
 Student Number: 230036937
  Notification Screen*/
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,68 +11,73 @@ import {
   SafeAreaView,
   StatusBar,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
-
-// Mock data
-const NOTIFICATION_SECTIONS = [
-  {
-    title: 'Expired',
-    titleColor: '#e53e3e',
-    data: [
-      {
-        id: '1',
-        name: 'Koo Peach Slices in Syrup 410g',
-        subtitle: 'Expired 2 days ago - remove from pantry',
-        badgeText: 'Expired',
-        badgeColor: '#e53e3e',
-      },
-    ],
-  },
-  {
-    title: 'Expiring soon',
-    titleColor: '#d97706',
-    data: [
-      {
-        id: '2',
-        name: 'Clover Full Cream Milk 1L',
-        subtitle: 'Expires tommorow',
-        badgeText: '1 day',
-        badgeColor: '#eab308',
-      },
-      {
-        id: '3',
-        name: 'Sasko Low GI Dumpy Brown Bread 800g',
-        subtitle: 'Expires in 3 days',
-        badgeText: '2 days',
-        badgeColor: '#eab308',
-      },
-    ],
-  },
-  {
-    title: 'Earlier',
-    titleColor: '#16a34a',
-    data: [
-      {
-        id: '4',
-        name: 'Lucky Star Pilchards in Tomato Sauce 400g',
-        subtitle: null,
-        badgeText: 'Resolved',
-        badgeColor: '#22c55e',
-      },
-    ],
-  },
-];
+import { supabase } from '../src/services/supabaseClient'; // Adjust path if needed
 
 export default function NotificationsScreen() {
+  const [sections, setSections] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('notification')
+        .select('*')
+        .order('sent_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Group notification records into sections
+      const expired = [];
+      const expiringSoon = [];
+      const earlier = [];
+
+      data.forEach((item) => {
+        const formatted = {
+          id: item.notification_id.toString(),
+          name: item.message.split(':')[0] || item.message,
+          subtitle: item.message.includes(':') ? item.message.split(':')[1]?.trim() : null,
+          badgeText: item.status,
+          badgeColor:
+            item.type === 'expired'
+              ? '#e53e3e'
+              : item.type === 'expiring_soon'
+              ? '#eab308'
+              : '#22c55e',
+        };
+
+        if (item.type === 'expired') expired.push(formatted);
+        else if (item.type === 'expiring_soon') expiringSoon.push(formatted);
+        else earlier.push(formatted);
+      });
+
+      const groupedData = [
+        { title: 'Expired', titleColor: '#e53e3e', data: expired },
+        { title: 'Expiring soon', titleColor: '#d97706', data: expiringSoon },
+        { title: 'Earlier', titleColor: '#16a34a', data: earlier },
+      ].filter((section) => section.data.length > 0);
+
+      setSections(groupedData);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderItem = ({ item }) => (
     <TouchableOpacity style={styles.card} activeOpacity={0.7}>
       <View style={styles.cardContent}>
         <Text style={styles.productName} numberOfLines={1}>
           {item.name}
         </Text>
-        {item.subtitle ? (
-          <Text style={styles.subtitle}>{item.subtitle}</Text>
-        ) : null}
+        {item.subtitle ? <Text style={styles.subtitle}>{item.subtitle}</Text> : null}
       </View>
       <View style={[styles.badge, { backgroundColor: item.badgeColor }]}>
         <Text style={styles.badgeText}>{item.badgeText}</Text>
@@ -81,32 +86,34 @@ export default function NotificationsScreen() {
   );
 
   const renderSectionHeader = ({ section: { title, titleColor } }) => (
-    <Text style={[styles.sectionHeader, { color: titleColor }]}>
-      {title}
-    </Text>
+    <Text style={[styles.sectionHeader, { color: titleColor }]}>{title}</Text>
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
-        {/* Main Section Header */}
         <View style={styles.headerContainer}>
           <Text style={styles.mainTitle}>Notifications</Text>
-          <Text style={styles.subTitle}>4 items need attention</Text>
+          <Text style={styles.subTitle}>
+            {sections.reduce((acc, s) => acc + s.data.length, 0)} items need attention
+          </Text>
         </View>
 
-        {/* Outer light grey wrapper block */}
         <View style={styles.cardContainerWrapper}>
-          <SectionList
-            sections={NOTIFICATION_SECTIONS}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            renderSectionHeader={renderSectionHeader}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
-            stickySectionHeadersEnabled={false}
-          />
+          {loading ? (
+            <ActivityIndicator size="large" color="#18794e" style={{ marginTop: 20 }} />
+          ) : (
+            <SectionList
+              sections={sections}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              renderSectionHeader={renderSectionHeader}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContent}
+              stickySectionHeadersEnabled={false}
+            />
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -156,7 +163,6 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 18,
-    paddingSymmetric: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: 'row',

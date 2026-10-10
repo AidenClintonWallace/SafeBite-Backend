@@ -9,46 +9,89 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { supabase } from '../src/services/supabaseClient'; // Adjust path if needed
 
-// TODO: replace with a real userApi.js call once the user/auth endpoints
-// are wired up on the backend (e.g. GET /api/user/{id})
-const MOCK_USER = {
-  fullName: 'Olwethu Mtwazi',
-  email: 'olwethu@safebite.com',
-  phoneNumber: '082 345 6789',
-  itemsTracked: 16,
-  itemsSaved: 12,
-};
-
-const ProfileScreen = ({ navigation }) => {
+const ProfileScreen = () => {
+  const router = useRouter();
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Swap this for: userAPI.getUser(USER_ID).then(setUser)
-    setUser(MOCK_USER);
+    fetchUserProfile();
   }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+
+      // 1. Get logged-in user session from Supabase
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !authUser) {
+        // Fallback default if no session found during testing
+        setUser({
+          fullName: 'Guest User',
+          email: 'guest@safebite.com',
+          phoneNumber: 'N/A',
+          itemsTracked: 0,
+          itemsSaved: 0,
+        });
+        return;
+      }
+
+      // 2. Query 'users' table in Supabase for additional profile info
+      const { data: profileData, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      if (profileData) {
+        setUser({
+          fullName: profileData.full_name || authUser.email?.split('@')[0],
+          email: authUser.email,
+          phoneNumber: profileData.phone || 'N/A',
+          itemsTracked: profileData.items_tracked ?? 0,
+          itemsSaved: profileData.items_saved ?? 0,
+        });
+      } else {
+        setUser({
+          fullName: authUser.user_metadata?.full_name || authUser.email,
+          email: authUser.email,
+          phoneNumber: 'N/A',
+          itemsTracked: 0,
+          itemsSaved: 0,
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const menuItems = [
     { icon: 'account-edit', label: 'Edit Profile', onPress: () => {} },
-    { icon: 'bell-outline', label: 'Notification Settings', onPress: () => {} },
-    { icon: 'flag-outline', label: 'My Reports', onPress: () => {} },
+    { icon: 'bell-outline', label: 'Notification Settings', onPress: () => router.push('/notifications') },
+    { icon: 'flag-outline', label: 'My Reports', onPress: () => router.push('/report') },
     { icon: 'shield-check-outline', label: 'Privacy & Safety', onPress: () => {} },
     { icon: 'help-circle-outline', label: 'Help & Support', onPress: () => {} },
   ];
 
-  const handleLogout = () => {
-    // TODO: clear auth token / session, then navigate to Login
-    navigation?.navigate?.('Login');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.replace('/login');
   };
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.toggleDrawer?.()}>
+        <TouchableOpacity>
           <MaterialCommunityIcons name="menu" size={28} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>SafeBite</Text>
@@ -56,58 +99,64 @@ const ProfileScreen = ({ navigation }) => {
       </View>
 
       <ScrollView style={styles.content}>
-        {/* Avatar + name */}
-        <View style={styles.profileHeader}>
-          <View style={styles.avatarCircle}>
-            <MaterialCommunityIcons name="account" size={48} color="#4CAF50" />
-          </View>
-          <Text style={styles.name}>{user?.fullName || 'Loading...'}</Text>
-          <Text style={styles.email}>{user?.email}</Text>
-        </View>
-
-        {/* Stats row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{user?.itemsTracked ?? '-'}</Text>
-            <Text style={styles.statLabel}>Items tracked</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{user?.itemsSaved ?? '-'}</Text>
-            <Text style={styles.statLabel}>Items saved</Text>
-          </View>
-        </View>
-
-        {/* Contact info card */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoLabel}>Phone number</Text>
-          <Text style={styles.infoValue}>{user?.phoneNumber || '-'}</Text>
-        </View>
-
-        {/* Menu list */}
-        <View style={styles.menuCard}>
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={item.label}
-              style={[
-                styles.menuItem,
-                index === menuItems.length - 1 && styles.menuItemLast,
-              ]}
-              onPress={item.onPress}
-            >
-              <View style={styles.menuItemLeft}>
-                <MaterialCommunityIcons name={item.icon} size={22} color="#333" />
-                <Text style={styles.menuItemText}>{item.label}</Text>
+        {loading ? (
+          <ActivityIndicator size="large" color="#4CAF50" style={{ marginTop: 40 }} />
+        ) : (
+          <>
+            {/* Avatar + name */}
+            <View style={styles.profileHeader}>
+              <View style={styles.avatarCircle}>
+                <MaterialCommunityIcons name="account" size={48} color="#4CAF50" />
               </View>
-              <MaterialCommunityIcons name="chevron-right" size={22} color="#BBB" />
-            </TouchableOpacity>
-          ))}
-        </View>
+              <Text style={styles.name}>{user?.fullName || 'User Profile'}</Text>
+              <Text style={styles.email}>{user?.email}</Text>
+            </View>
 
-        {/* Logout */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <MaterialCommunityIcons name="logout" size={20} color="#F44336" />
-          <Text style={styles.logoutText}>Log Out</Text>
-        </TouchableOpacity>
+            {/* Stats row */}
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>{user?.itemsTracked ?? 0}</Text>
+                <Text style={styles.statLabel}>Items tracked</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>{user?.itemsSaved ?? 0}</Text>
+                <Text style={styles.statLabel}>Items saved</Text>
+              </View>
+            </View>
+
+            {/* Contact info card */}
+            <View style={styles.infoCard}>
+              <Text style={styles.infoLabel}>Phone number</Text>
+              <Text style={styles.infoValue}>{user?.phoneNumber || 'N/A'}</Text>
+            </View>
+
+            {/* Menu list */}
+            <View style={styles.menuCard}>
+              {menuItems.map((item, index) => (
+                <TouchableOpacity
+                  key={item.label}
+                  style={[
+                    styles.menuItem,
+                    index === menuItems.length - 1 && styles.menuItemLast,
+                  ]}
+                  onPress={item.onPress}
+                >
+                  <View style={styles.menuItemLeft}>
+                    <MaterialCommunityIcons name={item.icon} size={22} color="#333" />
+                    <Text style={styles.menuItemText}>{item.label}</Text>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={22} color="#BBB" />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Logout */}
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <MaterialCommunityIcons name="logout" size={20} color="#F44336" />
+              <Text style={styles.logoutText}>Log Out</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
     </View>
   );
