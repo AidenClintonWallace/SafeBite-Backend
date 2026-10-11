@@ -1,7 +1,8 @@
 /*Olwethu Mtwazi
 Student Number: 230036937
  Scanner Screen*/
-import React, { useState } from 'react';
+
+ import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,11 +14,11 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { supabase } from '../../src/services/supabaseClient';
 
-// Standardized import path and variable name
-import { productAPI } from '../../src/services/productApi';
-
-export default function Scanner({ navigation }) {
+export default function Scanner() {
+  const router = useRouter();
   const [manualCode, setManualCode] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -29,13 +30,25 @@ export default function Scanner({ navigation }) {
 
     setLoading(true);
     try {
-      // Calls the API to check your database
-      const food = await productAPI.getFoodByBarcode(manualCode.trim());
+      const { data: food, error } = await supabase
+        .from('food_product')
+        .select('*')
+        .eq('barcode', manualCode.trim())
+        .maybeSingle();
 
-      // Navigates to Product screen with the returned data
-      navigation?.navigate('Product', { food });
+      if (error) throw error;
+      if (!food) {
+        Alert.alert('Not found', 'No product matches that barcode.');
+        return;
+      }
+
+      // Route params must be strings, so the product is sent as JSON
+      router.push({
+        pathname: '/product',
+        params: { food: JSON.stringify(food) },
+      });
     } catch (err) {
-      Alert.alert('Not found', err.message || 'Could not find that product');
+      Alert.alert('Error', err.message || 'Could not look up that product');
     } finally {
       setLoading(false);
     }

@@ -17,6 +17,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../src/services/supabaseClient';
+import { setCurrentUser } from '../src/services/session';
 
 export default function LoginScreen() {
   const router = useRouter();

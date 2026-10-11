@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { supabase } from '../../src/services/supabaseClient';
+import { getCurrentUser } from '../../src/services/session';
 
 export default function PantryScreen() {
   const [pantryItems, setPantryItems] = useState([]);
@@ -30,16 +31,20 @@ export default function PantryScreen() {
   const fetchPantryItems = async () => {
     try {
       setLoading(true);
+
+      const user = getCurrentUser();
+      if (!user) {
+        setPantryItems([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('pantry')
         .select(`
           *,
-          food_product (
-            product_name,
-            category,
-            image_url
-          )
+          food_product (*)
         `)
+        .eq('user_id', user.user_id)
         .order('expiration_date', { ascending: true });
 
       if (error) throw error;
@@ -78,13 +83,13 @@ export default function PantryScreen() {
   };
 
   const filteredItems = pantryItems.filter((item) => {
-    const name = item.food_product?.product_name || item.custom_name || '';
+    const name = item.food_product?.name || item.custom_name || '';
     return name.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   const renderCard = ({ item }) => {
-    const productName = item.food_product?.product_name || item.custom_name || 'Pantry Item';
-    const category = item.food_product?.category || 'General Pantry';
+    const productName = item.food_product?.name || item.custom_name || 'Pantry Item';
+    const category = item.food_product?.brand || 'General Pantry';
     const imageUrl = item.food_product?.image_url || 'https://via.placeholder.com/400x200';
     const badge = getExpiryBadge(item.expiration_date);
 
