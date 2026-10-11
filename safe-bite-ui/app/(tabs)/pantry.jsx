@@ -2,7 +2,8 @@
 Student Number: 231157592 
  Pantry Screen*/
  
- import React, { useState, useEffect } from 'react';
+ import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   StyleSheet,
   Text,
@@ -19,14 +20,39 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { supabase } from '../../src/services/supabaseClient';
 import { getCurrentUser } from '../../src/services/session';
 
+// Shows the product photo, or a neutral placeholder if there's none or it fails to load
+const CardImage = ({ uri }) => {
+  const [failed, setFailed] = useState(false);
+
+  if (!uri || failed) {
+    return (
+      <View style={[styles.cardImage, styles.imagePlaceholder]}>
+        <Ionicons name="fast-food-outline" size={48} color="#cbd5e1" />
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={styles.cardImage}
+      resizeMode="cover"
+      onError={() => setFailed(true)}
+    />
+  );
+};
+
 export default function PantryScreen() {
   const [pantryItems, setPantryItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchPantryItems();
-  }, []);
+  // Refetch whenever this tab is shown, so newly added items appear
+  useFocusEffect(
+    useCallback(() => {
+      fetchPantryItems();
+    }, [])
+  );
 
   const fetchPantryItems = async () => {
     try {
@@ -90,13 +116,13 @@ export default function PantryScreen() {
   const renderCard = ({ item }) => {
     const productName = item.food_product?.name || item.custom_name || 'Pantry Item';
     const category = item.food_product?.brand || 'General Pantry';
-    const imageUrl = item.food_product?.image_url || 'https://via.placeholder.com/400x200';
+    const imageUrl = item.food_product?.image_url || null;
     const badge = getExpiryBadge(item.expiration_date);
 
     return (
       <View style={styles.card}>
         <View style={styles.imageContainer}>
-          <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
+          <CardImage uri={imageUrl} />
           
           <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
             <Text style={[styles.statusBadgeText, { color: badge.color }]}>{badge.text}</Text>
@@ -194,6 +220,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: { height: 130, width: '100%', position: 'relative' },
   cardImage: { width: '100%', height: '100%' },
+  imagePlaceholder: { backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
   statusBadge: {
     position: 'absolute',
     top: 12,
