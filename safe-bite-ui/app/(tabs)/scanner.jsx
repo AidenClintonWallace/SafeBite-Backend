@@ -17,6 +17,33 @@ import {
 import { useRouter } from 'expo-router';
 import { supabase } from '../../src/services/supabaseClient';
 
+const OFF_URL = 'https://world.openfoodfacts.org/api/v2/product';
+
+// Looks a barcode up on Open Food Facts (free, community-built database).
+// Returns a row shaped like food_product, or null if there's no usable entry.
+const lookupOpenFoodFacts = async (barcode) => {
+  const response = await fetch(
+    `${OFF_URL}/${barcode}.json?fields=product_name,generic_name,brands,ingredients_text,image_front_url,image_url`,
+    { headers: { 'User-Agent': 'SafeBite/1.0 (student project)' } }
+  );
+  if (!response.ok) return null;
+
+  const json = await response.json();
+  const p = json?.product;
+  if (json?.status !== 1 || !p) return null;
+
+  const name = p.product_name || p.generic_name;
+  if (!name) return null;
+
+  return {
+    barcode,
+    name: name.trim(),
+    brand: p.brands ? p.brands.split(',')[0].trim() : null,
+    ingredients: p.ingredients_text || null,
+    image_url: p.image_front_url || p.image_url || null,
+  };
+};
+
 export default function Scanner() {
   const router = useRouter();
   const [manualCode, setManualCode] = useState('');
@@ -28,18 +55,54 @@ export default function Scanner() {
       return;
     }
 
+    const barcode = manualCode.trim();
     setLoading(true);
     try {
-      const { data: food, error } = await supabase
+      // 1. Check our own table first
+      const { data: existing, error } = await supabase
         .from('food_product')
         .select('*')
-        .eq('barcode', manualCode.trim())
+        .eq('barcode', barcode)
         .maybeSingle();
 
       if (error) throw error;
+
+      let food = existing;
+
+      // 2. Not in our table, so try Open Food Facts
       if (!food) {
-        Alert.alert('Not found', 'No product matches that barcode.');
-        return;
+        let found = null;
+        try {
+          found = await lookupOpenFoodFacts(barcode);
+        } catch (netErr) {
+          Alert.alert(
+            'No connection',
+            "Couldn't reach the online product database. Check your connection and try again."
+          );
+          return;
+        }
+
+        if (!found) {
+          Alert.alert(
+            'Not found',
+            "We couldn't find that barcode in SafeBite or the online database yet."
+          );
+          return;
+        }
+
+        // 3. Save it so the next scan (by anyone) finds it instantly
+        const { data: saved, error: saveErr } = await supabase
+          .from('food_product')
+          .insert([found])
+          .select()
+          .single();
+
+        if (saveErr) {
+          Alert.alert('Found it, but could not save it', saveErr.message);
+          return;
+        }
+
+        food = saved;
       }
 
       // Route params must be strings, so the product is sent as JSON

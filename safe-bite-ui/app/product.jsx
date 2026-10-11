@@ -2,7 +2,7 @@
 Student Number: 222954396
  Product Screen*/
 
-import React, { useState, useEffect } from 'react';
+ import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -16,8 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../src/services/supabaseClient';
-
-const USER_ID = 1;
+import { getCurrentUser } from '../src/services/session';
 
 export default function ProductDetailScreen() {
   const router = useRouter();
@@ -31,6 +30,7 @@ export default function ProductDetailScreen() {
   const [loading, setLoading] = useState(!scannedFood);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     if (scannedFood) return;
@@ -63,11 +63,21 @@ export default function ProductDetailScreen() {
 
   const handleAddToPantry = async () => {
     try {
-      const targetProductId = product?.product_id || product?.productId || 1;
+      const user = getCurrentUser();
+      if (!user) {
+        setMessage('❌ Please log in again to add items.');
+        return;
+      }
+
+      const targetProductId = product?.product_id || product?.productId;
+      if (!targetProductId) {
+        setMessage("❌ This product has no ID, so it can't be added.");
+        return;
+      }
 
       const { error: pantryErr } = await supabase.from('pantry').insert([
         {
-          user_id: USER_ID,
+          user_id: user.user_id,
           product_id: targetProductId,
           quantity: 1,
           added_date: new Date().toISOString().split('T')[0],
@@ -116,7 +126,7 @@ export default function ProductDetailScreen() {
     product.image_url ||
     product.image_front_url ||
     product.imageUrl ||
-    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800';
+    null;
   const ingredients = product.ingredients_text || product.ingredients || 'Ingredients not available.';
   const expiryDisplay = product.expiryDate || product.expiration_date
     ? new Date(product.expiryDate || product.expiration_date).toLocaleDateString()
@@ -134,7 +144,16 @@ export default function ProductDetailScreen() {
 
         {/* Dynamic Product Image */}
         <View style={styles.imageContainer}>
-          <Image source={{ uri: imageUrl }} style={styles.productImage} resizeMode="contain" />
+          {imageUrl && !imageFailed ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.productImage}
+              resizeMode="contain"
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <Ionicons name="fast-food-outline" size={64} color="#cbd5e1" />
+          )}
         </View>
 
         {/* Product Title & Brand */}
