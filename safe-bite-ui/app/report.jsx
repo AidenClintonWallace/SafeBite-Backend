@@ -2,7 +2,7 @@
 Student Number: 230036937
  Report Screen*/
 
-import React, { useState } from 'react';
+ import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,9 +13,11 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { supabase } from '../src/services/supabaseClient';
+import { getCurrentUser } from '../src/services/session';
+import { colors } from '../src/theme';
 
 const REPORT_REASONS = [
   'Suspicious or altered expiry date',
@@ -28,27 +30,52 @@ export default function ReportProductScreen() {
   const [productQuery, setProductQuery] = useState('');
   const [selectedReason, setSelectedReason] = useState(REPORT_REASONS[0]);
   const [additionalDetails, setAdditionalDetails] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!productQuery.trim()) {
       Alert.alert('Required Field', 'Please provide a product name or barcode.');
       return;
     }
 
-    Alert.alert(
-      'Report Submitted',
-      'Thank you for helping keep your community safe!',
-      [
+    const user = getCurrentUser();
+    if (!user) {
+      Alert.alert('Please log in again', 'You need to be logged in to submit a report.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from('report').insert([
         {
-          text: 'OK',
-          onPress: () => {
-            setProductQuery('');
-            setAdditionalDetails('');
-            setSelectedReason(REPORT_REASONS[0]);
-          },
+          user_id: user.user_id,
+          product_query: productQuery.trim(),
+          reason: selectedReason,
+          details: additionalDetails.trim() || null,
         },
-      ]
-    );
+      ]);
+
+      if (error) throw error;
+
+      Alert.alert(
+        'Report Submitted',
+        'Thank you for helping keep your community safe!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              setProductQuery('');
+              setAdditionalDetails('');
+              setSelectedReason(REPORT_REASONS[0]);
+            },
+          },
+        ]
+      );
+    } catch (err) {
+      Alert.alert('Could not submit report', err.message || 'Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -58,87 +85,75 @@ export default function ReportProductScreen() {
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back-circle-outline" size={28} color="#15803d" />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
+        <Text style={styles.intro}>
+          Help keep your community safe by telling us about a product that doesn't look right.
+        </Text>
 
-        {/* Screen Title */}
-        <View style={styles.headerContainer}>
-          <Text style={styles.mainTitle}>Report a product</Text>
-          <Text style={styles.subTitle}>Help keep your community safe</Text>
+        {/* Card 1: Product Name or Barcode */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Product name or barcode</Text>
+          <TextInput
+            style={styles.textInputPill}
+            placeholder="e.g. Lucky Star Pilchards or 6001007051044"
+            placeholderTextColor="#9ca3af"
+            value={productQuery}
+            onChangeText={setProductQuery}
+          />
         </View>
 
-        {/* Green Outer Card Wrapper */}
-        <View style={styles.greenCardWrapper}>
-          
-          {/* Card 1: Product Name or Barcode */}
-          <View style={styles.whiteCard}>
-            <Text style={styles.cardTitle}>Product name or barcode</Text>
-            <TextInput
-              style={styles.textInputPill}
-              placeholder=""
-              placeholderTextColor="#9ca3af"
-              value={productQuery}
-              onChangeText={setProductQuery}
-            />
+        {/* Card 2: Reason for Report */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Reason for report</Text>
+          <View style={styles.radioGroup}>
+            {REPORT_REASONS.map((reason) => {
+              const isSelected = selectedReason === reason;
+              return (
+                <TouchableOpacity
+                  key={reason}
+                  style={styles.radioOption}
+                  onPress={() => setSelectedReason(reason)}
+                  activeOpacity={0.7}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: isSelected }}
+                >
+                  <View style={[styles.radioRing, isSelected && styles.radioRingSelected]}>
+                    {isSelected && <View style={styles.radioInner} />}
+                  </View>
+                  <Text style={styles.radioText}>{reason}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
+        </View>
 
-          {/* Card 2: Reason for Report (Radio Options) */}
-          <View style={styles.whiteCard}>
-            <Text style={styles.cardTitle}>Reason for report</Text>
-            <View style={styles.radioGroup}>
-              {REPORT_REASONS.map((reason) => {
-                const isSelected = selectedReason === reason;
-                return (
-                  <TouchableOpacity
-                    key={reason}
-                    style={styles.radioOption}
-                    onPress={() => setSelectedReason(reason)}
-                    activeOpacity={0.7}
-                  >
-                    <View
-                      style={[
-                        styles.radioDot,
-                        { backgroundColor: isSelected ? '#15803d' : '#d1d5db' },
-                      ]}
-                    />
-                    <Text style={styles.radioText}>{reason}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Card 3: Additional Details (Optional) */}
-          <View style={styles.whiteCard}>
-            <TextInput
-              style={styles.textAreaInput}
-              placeholder="Additional details (optional)"
-              placeholderTextColor="#9ca3af"
-              value={additionalDetails}
-              onChangeText={setAdditionalDetails}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-
+        {/* Card 3: Additional Details (Optional) */}
+        <View style={styles.card}>
+          <TextInput
+            style={styles.textAreaInput}
+            placeholder="Additional details (optional)"
+            placeholderTextColor="#9ca3af"
+            value={additionalDetails}
+            onChangeText={setAdditionalDetails}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
         </View>
 
         {/* Submit Button */}
         <TouchableOpacity
-          style={styles.submitButton}
+          style={[styles.submitButton, submitting && { opacity: 0.7 }]}
           onPress={handleSubmit}
+          disabled={submitting}
           activeOpacity={0.85}
         >
-          <Text style={styles.submitButtonText}>Submit report</Text>
+          {submitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.submitButtonText}>Submit report</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -148,99 +163,90 @@ export default function ReportProductScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 16,
     paddingBottom: 40,
   },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  backText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#15803d',
-    marginLeft: 6,
-  },
-  headerContainer: {
+  intro: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textMuted,
     marginBottom: 16,
   },
-  mainTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  subTitle: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginTop: 2,
-  },
-  greenCardWrapper: {
-    backgroundColor: '#15803d',
-    borderRadius: 24,
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
     padding: 16,
-    gap: 14,
-  },
-  whiteCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   cardTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#1f2937',
+    color: colors.text,
     marginBottom: 12,
   },
   textInputPill: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-    height: 38,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    height: 44,
     paddingHorizontal: 14,
-    fontSize: 13,
-    color: '#1f2937',
+    fontSize: 14,
+    color: colors.text,
   },
   radioGroup: {
-    gap: 12,
+    gap: 14,
   },
   radioOption: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  radioDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 10,
+  radioRing: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  radioRingSelected: {
+    borderColor: colors.primary,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
   },
   radioText: {
-    fontSize: 12,
-    fontWeight: '500',
+    flex: 1,
+    fontSize: 14,
     color: '#374151',
   },
   textAreaInput: {
     height: 90,
-    fontSize: 12,
-    color: '#1f2937',
+    fontSize: 14,
+    color: colors.text,
   },
   submitButton: {
-    backgroundColor: '#22c55e',
-    borderRadius: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    alignSelf: 'center',
-    marginTop: 20,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
   },
   submitButtonText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
   },
 });
