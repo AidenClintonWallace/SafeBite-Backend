@@ -2,7 +2,7 @@
 Student Number: 222567023
  Login & Signup Screen*/
 
-import React, { useState } from 'react';
+ import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -50,6 +50,10 @@ export default function LoginScreen() {
 
         if (error || !data) throw new Error('Invalid email or password');
 
+        // Remember who is logged in (without keeping the password around)
+        const { password: _pw, ...safeUser } = data;
+        setCurrentUser(safeUser);
+
         Alert.alert('Success', 'Logged in successfully!');
         router.replace('/(tabs)/dashboard');
       } else {
@@ -68,6 +72,10 @@ export default function LoginScreen() {
           .single();
 
         if (error) throw error;
+
+        // Remember who is logged in (without keeping the password around)
+        const { password: _pw, ...safeUser } = data;
+        setCurrentUser(safeUser);
 
         Alert.alert('Success', 'Account created successfully!');
         router.replace('/(tabs)/dashboard');
