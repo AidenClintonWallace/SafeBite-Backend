@@ -1,7 +1,7 @@
 /*Somila Ndoboza
 Student Number: 231157592 
  Pantry Screen*/
- 
+
  import React, { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
@@ -47,7 +47,6 @@ export default function PantryScreen() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Refetch whenever this tab is shown, so newly added items appear
   useFocusEffect(
     useCallback(() => {
       fetchPantryItems();
@@ -64,17 +63,44 @@ export default function PantryScreen() {
         return;
       }
 
+      // 1. First fetch pantry items sorted by expiry_date
       const { data, error } = await supabase
         .from('pantry')
-        .select(`
-          *,
-          food_product (*)
-        `)
+        .select('*')
         .eq('user_id', user.user_id)
         .order('expiration_date', { ascending: true });
 
       if (error) throw error;
-      setPantryItems(data || []);
+
+      if (!data || data.length === 0) {
+        setPantryItems([]);
+        return;
+      }
+
+      // 2. Fetch linked food product details manually to avoid missing foreign key relation errors
+      const productIds = data.map((item) => item.product_id).filter(Boolean);
+      let productsMap = {};
+
+      if (productIds.length > 0) {
+        const { data: prodData } = await supabase
+          .from('food_product')
+          .select('*')
+          .in('product_id', productIds);
+
+        if (prodData) {
+          prodData.forEach((p) => {
+            productsMap[p.product_id] = p;
+          });
+        }
+      }
+
+      // Combine pantry item with product details
+      const combined = data.map((item) => ({
+        ...item,
+        food_product: productsMap[item.product_id] || null,
+      }));
+
+      setPantryItems(combined);
     } catch (err) {
       console.error('Error fetching pantry:', err.message);
     } finally {
@@ -123,28 +149,34 @@ export default function PantryScreen() {
       <View style={styles.card}>
         <View style={styles.imageContainer}>
           <CardImage uri={imageUrl} />
-          
+
           <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
             <Text style={[styles.statusBadgeText, { color: badge.color }]}>{badge.text}</Text>
           </View>
 
-          <TouchableOpacity style={styles.actionIconButton} onPress={() => removeItem(item.pantry_id)}>
+          <TouchableOpacity
+            style={styles.actionIconButton}
+            onPress={() => removeItem(item.pantry_id)}
+          >
             <Ionicons name="trash-outline" size={18} color="#ef4444" />
           </TouchableOpacity>
         </View>
 
         <View style={styles.cardDetails}>
           <Text style={styles.categoryText}>{category}</Text>
-          <Text style={styles.productTitle} numberOfLines={1}>{productName}</Text>
-          
+          <Text style={styles.productTitle} numberOfLines={1}>
+            {productName}
+          </Text>
+
           <View style={styles.metaRow}>
             <Ionicons name="calendar-outline" size={14} color="#6b7280" />
             <Text style={styles.metaText}>
-              Expires: {item.expiration_date ? new Date(item.expiration_date).toLocaleDateString() : 'N/A'}
+              Expires:{' '}
+              {item.expiry_date
+                ? new Date(item.expiry_date).toLocaleDateString()
+                : 'N/A'}
             </Text>
-            {item.quantity && (
-              <Text style={styles.quantityText}>• Qty: {item.quantity}</Text>
-            )}
+            {item.quantity && <Text style={styles.quantityText}>Qty: {item.quantity}</Text>}
           </View>
         </View>
       </View>
@@ -172,13 +204,11 @@ export default function PantryScreen() {
       ) : (
         <FlatList
           data={filteredItems}
-          keyExtractor={(item) => item.pantry_id.toString()}
+          keyExtractor={(item) => (item.pantry_id ? item.pantry_id.toString() : Math.random().toString())}
           renderItem={renderCard}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No pantry items found.</Text>
-          }
+          ListEmptyComponent={<Text style={styles.emptyText}>No pantry items found.</Text>}
         />
       )}
     </SafeAreaView>
