@@ -38,6 +38,7 @@ const buildSections = (items) => {
   let noDate = 0;
 
   items.forEach((item) => {
+    // FIXED: Reads directly from expiration_date in Supabase
     const days = daysLeft(item.expiration_date);
     if (days === null) {
       noDate += 1;
@@ -79,7 +80,6 @@ const NotificationCard = ({ item, section }) => {
     subtitle = `Expires in ${item.days} days`;
   }
 
-  // The "Expired" section title already says it, so only show a badge for items still in date
   let badge = null;
   if (!isExpired) {
     badge = item.days === 0 ? 'Today' : item.days === 1 ? '1 day' : `${item.days} days`;
@@ -125,19 +125,42 @@ export default function NotificationsScreen() {
         return;
       }
 
+      // Fetch pantry items
       const { data, error: fetchErr } = await supabase
         .from('pantry')
-        .select('*, food_product (*)')
+        .select('*')
         .eq('user_id', user.user_id);
 
       if (fetchErr) throw fetchErr;
 
       const items = data || [];
-      const built = buildSections(items);
+
+      // Fetch food_product details to attach product names
+      const productIds = items.map((i) => i.product_id).filter(Boolean);
+      let productsMap = {};
+      if (productIds.length > 0) {
+        const { data: prodData } = await supabase
+          .from('food_product')
+          .select('*')
+          .in('product_id', productIds);
+
+        if (prodData) {
+          prodData.forEach((p) => {
+            productsMap[p.product_id] = p;
+          });
+        }
+      }
+
+      const combinedItems = items.map((item) => ({
+        ...item,
+        food_product: productsMap[item.product_id] || null,
+      }));
+
+      const built = buildSections(combinedItems);
 
       setSections(built.sections);
       setNoDate(built.noDate);
-      setPantryCount(items.length);
+      setPantryCount(combinedItems.length);
       setError(null);
     } catch (err) {
       console.error('Error loading notifications:', err);

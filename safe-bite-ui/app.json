@@ -7,12 +7,19 @@
     "scheme": "safebiteui",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/safebiteLogo.png",
+    "splash": {
+      "image": "./assets/safebiteLogo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0c7a43"
+    },
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE"
+        "foregroundImage": "./assets/safebiteLogo.png",
+        "backgroundColor": "#0c7a43"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
