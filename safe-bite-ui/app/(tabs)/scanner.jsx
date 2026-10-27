@@ -2,7 +2,7 @@
 Student Number: 230036937
  Scanner Screen*/
 
- import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,12 +15,12 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { supabase } from '../../src/services/supabaseClient';
 
 const OFF_URL = 'https://world.openfoodfacts.org/api/v2/product';
 
 // Looks a barcode up on Open Food Facts (free, community-built database).
-// Returns a row shaped like food_product, or null if there's no usable entry.
 const lookupOpenFoodFacts = async (barcode) => {
   const response = await fetch(
     `${OFF_URL}/${barcode}.json?fields=product_name,generic_name,brands,ingredients_text,image_front_url,image_url`,
@@ -48,14 +48,14 @@ export default function Scanner() {
   const router = useRouter();
   const [manualCode, setManualCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
 
-  const handleSearch = async () => {
-    if (!manualCode.trim()) {
-      Alert.alert('Enter a barcode', 'Please type or scan a barcode first.');
-      return;
-    }
+  // Process and lookup code (used by both camera scan and manual search)
+  const processBarcode = async (barcodeToProcess) => {
+    const barcode = barcodeToProcess.trim();
+    if (!barcode) return;
 
-    const barcode = manualCode.trim();
     setLoading(true);
     try {
       // 1. Check our own table first
@@ -79,6 +79,8 @@ export default function Scanner() {
             'No connection',
             "Couldn't reach the online product database. Check your connection and try again."
           );
+          setLoading(false);
+          setScanned(false);
           return;
         }
 
@@ -87,10 +89,12 @@ export default function Scanner() {
             'Not found',
             "We couldn't find that barcode in SafeBite or the online database yet."
           );
+          setLoading(false);
+          setScanned(false);
           return;
         }
 
-        // 3. Save it so the next scan (by anyone) finds it instantly
+        // 3. Save it so the next scan finds it instantly
         const { data: saved, error: saveErr } = await supabase
           .from('food_product')
           .insert([found])
@@ -99,22 +103,40 @@ export default function Scanner() {
 
         if (saveErr) {
           Alert.alert('Found it, but could not save it', saveErr.message);
+          setLoading(false);
+          setScanned(false);
           return;
         }
 
         food = saved;
       }
 
-      // Route params must be strings, so the product is sent as JSON
+      // Route to product details screen
       router.push({
         pathname: '/product',
         params: { food: JSON.stringify(food) },
       });
     } catch (err) {
       Alert.alert('Error', err.message || 'Could not look up that product');
+      setScanned(false);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = () => {
+    if (!manualCode.trim()) {
+      Alert.alert('Enter a barcode', 'Please type or scan a barcode first.');
+      return;
+    }
+    processBarcode(manualCode);
+  };
+
+  // Triggered automatically when physical camera detects a barcode
+  const handleBarCodeScanned = ({ data }) => {
+    if (scanned || loading) return;
+    setScanned(true);
+    processBarcode(data);
   };
 
   return (
@@ -124,11 +146,31 @@ export default function Scanner() {
       <Text style={styles.headerTitle}>Scan barcode</Text>
 
       <View style={styles.scannerFrame}>
-        <View style={styles.gridContainer}>
-          {Array.from({ length: 120 }).map((_, index) => (
-            <View key={index} style={styles.dot} />
-          ))}
-        </View>
+        {/* Render live camera view if permission is granted */}
+        {permission && permission.granted ? (
+          <CameraView
+            style={StyleSheet.absoluteFillObject}
+            facing="back"
+            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+            barcodeScannerSettings={{
+              barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128'],
+            }}
+          >
+            <View style={styles.gridContainer}>
+              {Array.from({ length: 120 }).map((_, index) => (
+                <View key={index} style={styles.dot} />
+              ))}
+            </View>
+          </CameraView>
+        ) : (
+          /* Fallback view if camera permission is not yet granted */
+          <View style={[styles.gridContainer, styles.permissionBox]}>
+            <Text style={styles.permText}>Camera access required for live scanning</Text>
+            <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
+              <Text style={styles.permBtnText}>Grant Permission</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <Text style={styles.subText}>Align barcode within the frame</Text>
@@ -177,6 +219,9 @@ const styles = StyleSheet.create({
     height: '45%',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+    borderRadius: 16,
+    backgroundColor: '#111',
   },
   gridContainer: {
     flexDirection: 'row',
@@ -185,6 +230,7 @@ const styles = StyleSheet.create({
     alignContent: 'space-between',
     width: '100%',
     height: '100%',
+    padding: 10,
   },
   dot: {
     width: 3,
@@ -193,6 +239,27 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
     margin: 8,
     opacity: 0.8,
+  },
+  permissionBox: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  permText: {
+    color: '#fff',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  permBtn: {
+    backgroundColor: '#18794e',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  permBtnText: {
+    color: '#fff',
+    fontWeight: '700',
   },
   subText: {
     color: '#ffffff',
